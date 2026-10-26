@@ -75,6 +75,16 @@ export function generateChoices(state: RunState): UpgradeOption[] {
   const rng = state.rng;
   const picks: UpgradeOption[] = [...out];
   const used = new Set(picks.map(keyOf));
+
+  // 前 3 级保底：至少一个新武器选项（降低开局选卡方差，构筑成型更快）
+  if (state.level <= 3 && picks.length === 0 && state.weapons.length < MAX_WEAPON_SLOTS) {
+    const unowned = BASE_WEAPONS.filter((id) => !weaponInst(state, id));
+    if (unowned.length > 0) {
+      const id = unowned[rng.int(0, unowned.length - 1)]!;
+      picks.push({ kind: 'newWeapon', id });
+      used.add(`w:${id}`);
+    }
+  }
   while (picks.length < 3 && pool.length > 0) {
     const idx = rng.weighted(pool.map((p) => p.w));
     if (idx < 0) break;
