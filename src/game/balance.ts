@@ -36,7 +36,7 @@ export function rollCrit(stats: Stats, rng: { next(): number }): boolean {
 
 /** 敌人密度目标：同屏敌人数上限（防止失控堆积导致掉帧与不可读）。 */
 export function maxEnemiesAt(t: number): number {
-  return Math.round(clamp(90 + t * 0.55, 90, 320));
+  return Math.round(clamp(90 + t * 0.5, 90, 300));
 }
 
 /** 星核结算：击杀 / 精英 / Boss / 存活时间。 */

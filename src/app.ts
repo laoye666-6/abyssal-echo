@@ -71,6 +71,10 @@ export class GameApp {
       (frameDt) => this.renderFrame(frameDt),
     );
     window.addEventListener('resize', () => this.renderer.resize());
+    // 失焦自动暂停（对局中）
+    window.addEventListener('blur', () => {
+      if (this.mode === 'running') this.pause();
+    });
   }
 
   boot(): void {
@@ -263,6 +267,12 @@ export class GameApp {
     this.renderer.render(state, frameDt, lowHp);
     if (state && (this.mode === 'running' || this.mode === 'paused' || this.mode === 'upgrade')) {
       this.hud.draw(state, this.mode === 'running' ? frameDt : 0, this.phaseLabel(state));
+    }
+
+    // Esc 暂停 / 恢复（升级弹窗打开时不响应）
+    if (this.input.pressed('pause')) {
+      if (this.mode === 'running') this.pause();
+      else if (this.mode === 'paused') this.resume();
     }
 
     // 事件 -> 表现
