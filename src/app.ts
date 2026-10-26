@@ -162,7 +162,7 @@ export class GameApp {
     if (this.mode !== 'running' || !this.state) return;
     const state = this.state;
     const mv = this.input.moveVec();
-    stepSim(state, dt, { mx: mv.x, my: mv.y, dash: this.input.held('dash') }, this.grid);
+    stepSim(state, dt, { mx: mv.x, my: mv.y, dash: this.input.held('dash') || this.input.pressed('dash') }, this.grid);
 
     // 引擎尾焰粒子
     this.engineTrailT -= dt;
