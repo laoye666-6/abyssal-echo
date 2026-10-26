@@ -53,7 +53,7 @@ export const drones: WeaponBehavior = {
         d.y += (dy / l) * speed * dt;
         if (l < target.r + d.r + 4 && d.cd <= 0) {
           dealDamageToEnemy(state, target, d.dmg, { knockback: 20, fromX: d.x, fromY: d.y });
-          d.cd = evolved ? 0.4 : 0.55;
+          d.cd = (evolved ? 0.4 : 0.55) * stats.cooldownMul;
           // 命中后反弹一点，避免贴脸抖动
           d.x -= (dx / l) * 26;
           d.y -= (dy / l) * 26;

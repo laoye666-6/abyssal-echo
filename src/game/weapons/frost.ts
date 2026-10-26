@@ -12,9 +12,9 @@ export const frost: WeaponBehavior = {
   },
   update(state: RunState, w: WeaponInstance, stats: Stats, dt: number): void {
     const evolved = w.id === 'frost_zero';
-    const radius = (evolved ? 130 : 88 + 12 * w.level) * stats.areaMul;
+    const radius = (evolved ? 170 : 88 + 12 * w.level) * stats.areaMul;
     const slow = evolved ? 0.6 : 0.28 + 0.04 * w.level;
-    const tickDmg = (evolved ? 10 : 4) * (1 + (evolved ? 0 : 0.3 * (w.level - 1))) * stats.damageMul;
+    const tickDmg = (evolved ? 14 : 4) * (1 + (evolved ? 0 : 0.3 * (w.level - 1))) * stats.damageMul;
 
     // 单一光环随从
     let aura: Attendant | null = null;
@@ -41,7 +41,7 @@ export const frost: WeaponBehavior = {
 
     A.cd -= dt;
     if (A.cd <= 0) {
-      A.cd = 0.5;
+      A.cd = 0.5 * stats.cooldownMul;
       const grid = state.gridRef as EnemyGrid | undefined;
       if (!grid) return;
       grid.query(A.x, A.y, radius + 40, (e) => {
@@ -49,7 +49,7 @@ export const frost: WeaponBehavior = {
         if (dist2(A.x, A.y, e.x, e.y) <= (radius + e.r) * (radius + e.r)) {
           dealDamageToEnemy(state, e, tickDmg, { noFlash: true });
           e.slow = Math.max(e.slow, slow);
-          if (evolved && state.rng.chance(0.12)) {
+          if (evolved && state.rng.chance(0.15)) {
             e.stun = Math.max(e.stun, 0.8);
             state.events.fx.push({ kind: 'freeze', x: e.x, y: e.y, r: e.r, color: '#bfe8ff' });
           }

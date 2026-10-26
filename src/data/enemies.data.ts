@@ -89,7 +89,7 @@ export const ENEMY_DEFS: Record<EnemyKindId, EnemyDef> = {
   },
   boss_eye: {
     id: 'boss_eye', behavior: 'chaser',
-    hp: 5600, speed: 58, contactDps: 50, radius: 40, xp: 120,
+    hp: 3000, speed: 58, contactDps: 50, radius: 40, xp: 120,
     weight: 0, batch: 1, knockbackResist: 1, tier: 'boss',
     color: '#ff4bd8',
   },

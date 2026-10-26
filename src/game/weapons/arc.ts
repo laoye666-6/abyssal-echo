@@ -10,8 +10,8 @@ export const arc: WeaponBehavior = {
   fire(state: RunState, w: WeaponInstance, stats: Stats): void {
     const evolved = w.id === 'arc_tempest';
     const lv = evolved ? 5 : w.level;
-    const chains = evolved ? 9 : 2 + lv + stats.projCountBonus;
-    let dmg = (evolved ? 15 : 13) * levelMul(lv, 0.15) * stats.damageMul;
+    const chains = evolved ? 10 : 2 + lv + stats.projCountBonus;
+    let dmg = (evolved ? 24 : 13) * levelMul(lv, 0.15) * stats.damageMul;
     const range = 260 * stats.areaMul;
     const jumpRange = 150 * stats.areaMul;
 

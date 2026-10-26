@@ -79,7 +79,7 @@ export const orbit: WeaponBehavior = {
           if (hit) return;
           if (dist2(a.x, a.y, e.x, e.y) <= (a.r + e.r) * (a.r + e.r)) {
             dealDamageToEnemy(state, e, a.dmg, { knockback: 40, fromX: p.x, fromY: p.y });
-            a.cd = rehit;
+            a.cd = rehit * stats.cooldownMul;
             hit = true;
           }
         });

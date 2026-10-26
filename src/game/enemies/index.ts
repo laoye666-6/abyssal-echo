@@ -8,7 +8,7 @@ export type EnemyUpdateFn = (state: RunState, e: Enemy, dt: number) => void;
 
 /** 缓速/眩晕统一结算，返回有效速度系数。 */
 export function speedFactor(e: Enemy): number {
-  if (e.stun > 0) return 0;
+  if (e.stun > 0 && e.tier !== 'boss') return 0; // Boss 免疫眩晕（弹幕不受影响）
   return e.slow > 0 ? 0.55 : 1;
 }
 
@@ -99,30 +99,32 @@ const behaviors: Record<string, EnemyUpdateFn> = {
     e.vy += (tvy - e.vy) * k;
 
     // 开火
+    const wdef = ENEMY_DEFS[e.kind];
     e.phase -= dt;
     if (e.phase <= 0 && f > 0) {
-      e.phase = 2.4;
+      e.phase = wdef.params?.fireCd ?? 2.4;
       const b = state.ebullets.spawn();
       if (b) {
-        const bs = 130;
+        const bs = wdef.params?.bulletSpeed ?? 130;
         b.x = e.x;
         b.y = e.y;
         b.vx = (dx / d) * bs;
         b.vy = (dy / d) * bs;
         b.r = 6;
-        b.dmg = 12;
+        b.dmg = wdef.params?.bulletDmg ?? 12;
         b.life = 5;
       }
     }
   },
 
   phaser(state, e, dt) {
+    const wdef = ENEMY_DEFS[e.kind];
     e.phase -= dt;
     if (e.phase <= 0) {
-      e.phase = 5;
+      e.phase = wdef.params?.tpCd ?? 5;
       // 瞬移到玩家附近随机角
       const a = state.rng.next() * Math.PI * 2;
-      const r = 220;
+      const r = wdef.params?.tpDist ?? 220;
       e.x = state.player.x + Math.cos(a) * r;
       e.y = state.player.y + Math.sin(a) * r;
       e.vx = 0;
@@ -150,9 +152,13 @@ export function updateEnemy(state: RunState, e: Enemy, dt: number): void {
   // 击退/速度积分 + 阻尼
   e.x += e.vx * dt;
   e.y += e.vy * dt;
-  const damp = Math.pow(0.0001, dt); // 击退速度快速衰减（steering 型行为每帧重建速度）
-  e.vx *= damp;
-  e.vy *= damp;
+  // 泯灭者冲锋期间不衰减（否则 620px/s 的冲锋被击退阻尼吃成 72px）
+  const charging = e.kind === 'boss_devourer' && e.phase === 2;
+  if (!charging) {
+    const damp = Math.pow(0.0001, dt); // 击退速度快速衰减（steering 型行为每帧重建速度）
+    e.vx *= damp;
+    e.vy *= damp;
+  }
 }
 
 

@@ -93,6 +93,12 @@ export function stepDirector(state: RunState, dt: number): void {
         break;
       }
       case 'boss': {
+        // 防止双 Boss 同场：最终 Boss 出场时吞噬残存的旧 Boss
+        if (ev.id === 'boss_eye') {
+          state.enemies.forEach((e) => {
+            if (e.tier === 'boss' && e.kind !== 'boss_eye') state.enemies.despawn(e);
+          });
+        }
         pickRingPoint(state, tmp);
         spawnEnemy(state, ev.id, tmp.x, tmp.y, bossHpScale(state.time));
         state.banner = { key: ev.id === 'boss_eye' ? 'warning.finalboss' : 'warning.boss', t: 3 };

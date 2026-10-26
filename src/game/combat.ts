@@ -195,7 +195,9 @@ export function killEnemy(state: RunState, e: Enemy): void {
       if (other.tier !== 'boss') dealDamageToEnemy(state, other, 9999, { noFlash: false });
     });
   } else {
+    // 幸运：普通怪小概率掉落星核拾取物（luck 同时影响升级权重与掉率）
     if (state.rng.chance(0.03 + state.stats.luck * 0.004)) {
+      spawnPickup(state, 'core', e.x, e.y);
       state.events.sfx.push({ name: 'kill', v: 0.7, p: 0.9 });
     }
   }

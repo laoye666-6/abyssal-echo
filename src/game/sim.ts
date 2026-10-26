@@ -53,10 +53,6 @@ export function stepSim(state: RunState, dt: number, ctrl: SimControl, grid: Ene
     p.hp = Math.min(stats.maxHp, p.hp + stats.regen * dt);
   }
 
-  // ---------- 空间网格 ----------
-  grid.clear();
-  state.enemies.forEach((e) => grid.insert(e));
-
   // ---------- 导演 ----------
   stepDirector(state, dt);
   state.director.leashT -= dt;
@@ -64,6 +60,10 @@ export function stepSim(state: RunState, dt: number, ctrl: SimControl, grid: Ene
     state.director.leashT = 0.5;
     leashEnemies(state);
   }
+
+  // ---------- 空间网格（导演之后重建：本帧新生的敌人立即可被索敌） ----------
+  grid.clear();
+  state.enemies.forEach((e) => grid.insert(e));
 
   // ---------- 武器 ----------
   for (const w of state.weapons) {

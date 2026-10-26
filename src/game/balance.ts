@@ -8,7 +8,7 @@ import type { Stats } from './types';
 /** 运行总时长（秒）—— 9 分钟刷最终 Boss，击败即胜。 */
 export const RUN_GOAL_TIME = 540;
 /** 超时未击杀最终 Boss 也判负（防止无限拖） */
-export const RUN_HARD_CAP = 660;
+export const RUN_HARD_CAP = 780;
 
 /** 经验曲线：升到 level+1 所需 XP。 */
 export function xpToNext(level: number): number {

@@ -87,7 +87,7 @@ export function generateChoices(state: RunState): UpgradeOption[] {
 
   // 补位治疗
   while (picks.length < 3) {
-    picks.push({ kind: 'heal', amount: 0.15 + picks.length * 0.05 });
+    picks.push({ kind: 'heal', amount: 0.2 });
   }
   return picks;
 }
@@ -118,6 +118,10 @@ export function applyOption(state: RunState, opt: UpgradeOption): void {
     case 'evolution': {
       const w = weaponInst(state, opt.id);
       if (w) w.id = opt.into;
+      // 清掉旧武器的常驻随从（否则 orbit/drones/frost 进化后留下永久幽灵）
+      state.attendants.forEach((a) => {
+        if (a.ownerWeapon === opt.id) state.attendants.despawn(a);
+      });
       state.events.sfx.push({ name: 'evolve', v: 1, p: 1 });
       state.events.fx.push({ kind: 'levelUp', x: state.player.x, y: state.player.y, r: 160, color: '#ffd75b' });
       break;
