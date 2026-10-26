@@ -44,17 +44,17 @@ describe('balance 数值曲线', () => {
     );
   });
 
-  it('maxEnemiesAt：结果在 [90, 320] 内且随时间单调不减', () => {
+  it('maxEnemiesAt：结果在 [90, 300] 内且随时间单调不减', () => {
     expect(maxEnemiesAt(0)).toBe(90);
     let prev = maxEnemiesAt(0);
     for (let t = 0; t <= 1200; t += 10) {
       const v = maxEnemiesAt(t);
       expect(v).toBeGreaterThanOrEqual(90);
-      expect(v).toBeLessThanOrEqual(320);
+      expect(v).toBeLessThanOrEqual(300);
       expect(v).toBeGreaterThanOrEqual(prev);
       prev = v;
     }
-    expect(maxEnemiesAt(10000)).toBe(320); // 远超上限后钳制
+    expect(maxEnemiesAt(10000)).toBe(300); // 远超上限后钳制（上限 2026-10-27 平衡轮 320→300）
   });
 
   it('bossHpScale 恒大于同一时刻的 enemyHpScale', () => {
