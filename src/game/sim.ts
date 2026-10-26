@@ -197,8 +197,18 @@ export function stepSim(state: RunState, dt: number, ctrl: SimControl, grid: Ene
   state.gems.forEach((g) => {
     g.t += dt;
     if (!g.pulled) {
-      if (dist2(g.x, g.y, p.x, p.y) <= prR * prR) {
+      const d2 = dist2(g.x, g.y, p.x, p.y);
+      // 硬拾取 + 软磁吸（3 倍半径内自动吸附，覆盖常规击杀距离）
+      if (d2 <= prR * prR || (g.t > 0.25 && d2 <= (prR * 3) * (prR * 3))) {
         g.pulled = true;
+      } else if (g.t > 15) {
+        // 久置宝石缓慢漂向玩家（防挫败：远处击杀的经验不会永久滞留）
+        const dx = p.x - g.x;
+        const dy = p.y - g.y;
+        const l = Math.hypot(dx, dy) || 1;
+        const drift = Math.min(70, (g.t - 15) * 6);
+        g.x += (dx / l) * drift * dt;
+        g.y += (dy / l) * drift * dt;
       }
       return;
     }
@@ -255,6 +265,11 @@ export function stepSim(state: RunState, dt: number, ctrl: SimControl, grid: Ene
   if (!state.over && state.time > RUN_HARD_CAP) {
     state.over = { victory: false, reason: 'timeUp' };
   }
+
+  // ---------- 事件护栏（挂起/看门狗模式下表现层可能长时间不消费） ----------
+  if (state.events.damage.length > 300) state.events.damage.splice(0, state.events.damage.length - 300);
+  if (state.events.fx.length > 200) state.events.fx.splice(0, state.events.fx.length - 200);
+  if (state.events.sfx.length > 24) state.events.sfx.splice(0, state.events.sfx.length - 24);
 }
 
 /** 网格内最近敌人（排除已命中集合）。 */

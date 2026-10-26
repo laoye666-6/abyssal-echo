@@ -14,9 +14,9 @@ export const lance: WeaponBehavior = {
     const length = (evolved ? 720 : 400 + 30 * lv) * stats.areaMul;
     const width = (evolved ? 30 : 9 + 2.5 * lv) * stats.areaMul;
 
-    // 朝向：优先最近敌人，否则玩家朝向
+    // 朝向：优先最近敌人（拉近索敌范围），否则玩家朝向
     let best: { x: number; y: number } | null = null;
-    let bestD = 900 * 900;
+    let bestD = 520 * 520;
     state.enemies.forEach((e) => {
       if (e.spawnT > 0) return;
       const d2 = (e.x - state.player.x) ** 2 + (e.y - state.player.y) ** 2;

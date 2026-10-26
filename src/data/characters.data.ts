@@ -3,7 +3,7 @@ import type { CharacterDef } from '@/game/types';
 export const CHARACTER_DEFS: Record<string, CharacterDef> = {
   peregrine: {
     id: 'peregrine',
-    stats: { moveSpeed: 232 },
+    stats: { moveSpeed: 220 },
     startWeapon: 'pulse',
   },
   bastion: {

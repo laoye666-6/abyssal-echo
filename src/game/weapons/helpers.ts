@@ -42,8 +42,8 @@ export function fireProjectile(state: RunState, o: FireOpts): Projectile | null 
   return p;
 }
 
-/** 玩家朝向最近敌人的方向；无敌人时返回玩家朝向。 */
-export function aimNearest(state: RunState, maxDist = 900): { x: number; y: number; found: boolean } {
+/** 玩家朝向最近敌人的方向；无敌人时返回玩家朝向。默认距离收紧到拾取半径量级，保证击杀经验可被拾取。 */
+export function aimNearest(state: RunState, maxDist = 460): { x: number; y: number; found: boolean } {
   let best: { d2: number; x: number; y: number } | null = null;
   const p = state.player;
   state.enemies.forEach((e) => {
