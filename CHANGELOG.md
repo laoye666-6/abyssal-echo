@@ -5,7 +5,7 @@
 ## [1.0.0] - 2026-10-27
 
 首个完整可玩版本：《星渊回响》ABYSSAL ECHO —— survivors-like roguelite，TypeScript + Canvas 2D + WebAudio，纯前端零外部资源，构建产物为单文件 HTML。
-对应提交：`a3f129e`（引擎骨架）→ `6e3ce54`（完整垂直切片）。
+对应提交：`a3f129e`（引擎骨架）→ `c0d4559`（触屏控制与手感打磨）。
 
 ### Added
 
@@ -69,3 +69,21 @@
 - 构建管线：Vite 6 + `vite-plugin-singlefile` 产出可双击离线游玩的 `dist/index.html`；`tsc --noEmit` 严格模式（`noUncheckedIndexedAccess` 等）；ESLint；dev 固定端口 5199
 
 [1.0.0]: https://example.invalid/abyssal-echo/releases/tag/v1.0.0
+
+### Added（同日第二次迭代 · `b348cc5` → `c0d4559`）
+
+- **移动端触屏支持**：粗指针设备自动启用——左半屏任意位置按住弹出虚拟摇杆（死区 8px、半径 56px），右下角冲刺键 + 右上角暂停键；桌面端零干扰（`src/ui/touch.ts`、`?touch=1` 可强制预览）
+- 冲刺残影（轨迹渐隐重绘）、精英/Boss 出场震屏、血条平滑流动（受击快降/回复缓升）（`src/render/renderer.ts`、`src/render/hud.ts`）
+- 升级卡专属图标：电弧（闪电折线）/ 光矛（束体）/ 霜域（六向雪花）不再复用其它武器图标（`src/render/atlas.ts`）
+
+### Changed
+
+- **经验曲线下调约 20%**（`4 + 5L + 1.5L^1.6`，原 `5 + 7L + 1.6L^1.6`）：机器人试玩数据显示前期 45s/级拖慢构筑成型，现约 35s/级（`src/game/balance.ts` `xpToNext`）
+- 同屏敌人上限 320 → 300（弱机性能保命，实测 147 敌人时模拟步长仅 0.167ms）
+- 敌人伤害数字就近合并（70px 窗口内同帧叠加），消除数字海；宝石辉光与 mote 精灵对比度增强
+
+### Balance（机器人试玩证据）
+
+- 无元进度、单武器、随机走位机器人：**存活 4:50**（111 杀、Lv4、挺过 4:00 泯灭者阶段），死亡曲线 77%→44%→5% 血（10s 内崩塌，非暴毙）——判定前期曲线对新玩家友好
+- 索敌距离 900px → 460px（pulse/shard/lance）：修复"击杀发生在拾取半径外导致 0 经验"的体验断裂
+- 敌人基础移速整体上调（mote 55→76、dart 96→118 等 13 项）：消除"一直跑就永不掉血"的逃课问题
