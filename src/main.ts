@@ -12,9 +12,14 @@ function boot(): void {
   const app = new GameApp(canvas);
   app.boot();
   // 移动端触屏控制（桌面自动禁用）
-  void new TouchControls(app.input, appRoot, () => {
-    if (app.mode === 'running') app.pause();
-  });
+  void new TouchControls(
+    app.input,
+    appRoot,
+    () => {
+      if (app.mode === 'running') app.pause();
+    },
+    () => app.mode === 'running',
+  );
   // QA/调试句柄（不影响游戏逻辑）
   (window as unknown as { __app: GameApp }).__app = app;
 

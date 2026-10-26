@@ -22,6 +22,7 @@ export class TouchControls {
     private readonly input: Input,
     private readonly host: HTMLElement,
     private readonly onPause: () => void,
+    private readonly isVisible: () => boolean,
   ) {
     const coarse = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
     const hasTouch = typeof window !== 'undefined' && 'ontouchstart' in window;
@@ -115,6 +116,22 @@ export class TouchControls {
       e.stopPropagation();
       this.onPause();
     });
+
+    // 动作键只在战斗中显示（对局外隐藏，避免污染菜单）
+    this.dashBtn.style.display = 'none';
+    this.pauseBtn.style.display = 'none';
+    setInterval(() => {
+      const on = this.isVisible();
+      if (this.dashBtn) this.dashBtn.style.display = on ? 'flex' : 'none';
+      if (this.pauseBtn) this.pauseBtn.style.display = on ? 'flex' : 'none';
+      // 菜单打开时收回摇杆
+      if (!on && this.pointerId !== null) {
+        this.pointerId = null;
+        this.input.setVirtualMove(0, 0);
+        if (this.base) this.base.style.display = 'none';
+        if (this.knob) this.knob.style.display = 'none';
+      }
+    }, 300);
   }
 
   private onDown(e: PointerEvent): void {
