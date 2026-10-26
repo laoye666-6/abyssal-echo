@@ -20,6 +20,9 @@ export class Clock {
 
   /** 模拟累计时间（秒） */
   simTime = 0;
+  /** 最近 60 步的平均步长耗时（ms，性能观测） */
+  avgStepMs = 0;
+  private stepTimes: number[] = [];
 
   constructor(
     private readonly stepFn: (dt: number) => void,
@@ -84,7 +87,12 @@ export class Clock {
     while (this.acc >= SIM_STEP && steps < MAX_CATCHUP) {
       this.acc -= SIM_STEP;
       this.simTime += SIM_STEP;
+      const t0 = performance.now();
       this.stepFn(SIM_STEP);
+      const cost = performance.now() - t0;
+      this.stepTimes.push(cost);
+      if (this.stepTimes.length > 60) this.stepTimes.shift();
+      this.avgStepMs = this.stepTimes.reduce((a, b) => a + b, 0) / this.stepTimes.length;
       steps++;
     }
     if (steps === MAX_CATCHUP && this.acc > SIM_STEP) this.acc = 0;

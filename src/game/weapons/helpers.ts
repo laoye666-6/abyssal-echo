@@ -1,6 +1,4 @@
-import { ENEMY_DEFS } from '@/data/enemies.data';
-import type { Projectile, ProjectileKind, RunState, WeaponInstance } from '@/game/types';
-import { enemyHpScale } from '@/game/balance';
+import type { Projectile, ProjectileKind, RunState } from '@/game/types';
 
 export interface FireOpts {
   kind: ProjectileKind;
@@ -66,16 +64,6 @@ export function levelMul(level: number, per = 0.16): number {
   return 1 + per * (level - 1);
 }
 
-/** 武器调用时的敌人血量成长参考（供平衡感参考，未直接用于伤害）。 */
-export function hpScaleRef(state: RunState): number {
-  return enemyHpScale(state.time);
-}
-
-/** 确保武器实例存在（防御式）。 */
-export function assertWeapon(w: WeaponInstance): WeaponInstance {
-  return w;
-}
-
 export function weaponColorOf(kind: ProjectileKind): string {
   const table: Partial<Record<ProjectileKind, string>> = {
     pulse: '#5be7ff',
@@ -90,4 +78,3 @@ export function weaponColorOf(kind: ProjectileKind): string {
   return table[kind] ?? '#5be7ff';
 }
 
-export { ENEMY_DEFS };

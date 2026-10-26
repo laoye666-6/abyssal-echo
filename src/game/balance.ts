@@ -34,11 +34,6 @@ export function rollCrit(stats: Stats, rng: { next(): number }): boolean {
   return rng.next() < clamp(stats.critChance, 0, 0.95);
 }
 
-/** 武器伤害终值 = 基础 * 等级系数 * 全局倍率，暴击在外层结算。 */
-export function weaponDamage(base: number, stats: Stats): number {
-  return base * stats.damageMul;
-}
-
 /** 敌人密度目标：同屏敌人数上限（防止失控堆积导致掉帧与不可读）。 */
 export function maxEnemiesAt(t: number): number {
   return Math.round(clamp(90 + t * 0.55, 90, 320));
@@ -52,5 +47,5 @@ export function coresEarned(kills: number, elites: number, bosses: number, survi
 
 /** Boss 数值成长。 */
 export function bossHpScale(t: number): number {
-  return enemyHpScale(t) * 2.2;
+  return enemyHpScale(t) * 1.8;
 }

@@ -2,6 +2,7 @@ import type { Enemy, RunState } from '@/game/types';
 import { normX, normY } from '@/core/math';
 import { spawnEnemy } from '@/game/combat';
 import { bossUpdate } from './boss';
+import { ENEMY_DEFS } from '@/data/enemies.data';
 
 export type EnemyUpdateFn = (state: RunState, e: Enemy, dt: number) => void;
 
@@ -32,8 +33,9 @@ const behaviors: Record<string, EnemyUpdateFn> = {
     const dy = p.y - e.y;
     const f = speedFactor(e);
     e.t += dt;
-    const amp = 46;
-    const freq = 3.2;
+    const def = ENEMY_DEFS[e.kind];
+    const amp = def.params?.weaveAmp ?? 46;
+    const freq = def.params?.weaveFreq ?? 3.2;
     const nx = normX(dx, dy);
     const ny = normY(dx, dy);
     // 垂直方向正弦摆动
@@ -153,7 +155,6 @@ export function updateEnemy(state: RunState, e: Enemy, dt: number): void {
   e.vy *= damp;
 }
 
-import { ENEMY_DEFS } from '@/data/enemies.data';
 
 function enemyBehaviorIdOf(kind: Enemy['kind']): string {
   return ENEMY_DEFS[kind].behavior;

@@ -1,0 +1,71 @@
+# 更新日志 · CHANGELOG
+
+本项目遵循 [语义化版本（SemVer）](https://semver.org/lang/zh-CN/) 与 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 格式。
+
+## [1.0.0] - 2026-10-27
+
+首个完整可玩版本：《星渊回响》ABYSSAL ECHO —— survivors-like roguelite，TypeScript + Canvas 2D + WebAudio，纯前端零外部资源，构建产物为单文件 HTML。
+对应提交：`a3f129e`（引擎骨架）→ `6e3ce54`（完整垂直切片）。
+
+### Added
+
+**核心玩法**
+
+- 60Hz 固定步长确定性模拟：同种子同轨迹（mulberry32 单一随机源），可单测、可回放扩展（`src/game/sim.ts`、`src/core/rng.ts`）
+- 9 分钟单局循环：存活至 9:00 迎战最终 Boss"深渊之眼"，击杀即胜；11:00 硬超时判负（`src/game/balance.ts` `RUN_GOAL_TIME/RUN_HARD_CAP`）
+- 升级三选一系统：加权候选池（幸运影响权重）、武器/被动各 4 栏位、候选不足自动以治疗补位（`src/game/upgrades.ts`）
+- 武器进化系统：8 把武器满 5 级 + 绑定被动满 3 级触发进化，进化必占三选一第一格（`src/game/upgrades.ts` `isEvolutionEligible`）
+
+**角色与构筑（3 角色 / 8 武器 / 8 进化 / 8 被动）**
+
+- 角色：游隼（默认）/ 壁垒（存活 4:00 解锁）/ 织星（击败任意 Boss 解锁），各有独立初始武器与面板（`src/data/characters.data.ts`、`src/app.ts` 解锁判定）
+- 8 把基础武器：脉冲星尘（追踪）、星环刃（环绕）、新星爆发（环身弹幕）、链式电弧（跳跃）、贯穿射线（线段穿透）、蜂群无人机（自主索敌）、霜蚀领域（减速光环）、回响晶刃（弹射折射）（`src/game/weapons/`）
+- 8 种进化形态：超新星脉冲（命中迸裂）、冕环之环（8 刃）、引力坍缩（牵引+大爆炸）、天穹之怒（9 跳+眩晕）、奇点光矛（720px 光束）、星群蜂巢（8 机）、绝对零度（冻结）、万象镜厅（14 次弹射）
+- 8 条被动（各 5 级）：伤害/冷却/移速/生命回复/拾取/暴击/经验/护甲（`src/data/passives.data.ts`）
+
+**敌人与波次（8 普通 + 3 精英 + 2 Boss）**
+
+- 6 种敌人行为：追击（平滑转向保留击退惯性）、织行（正弦逼近）、远程（保持距离带开火）、分裂（死亡喷子体）、重装（高击退抗性）、相移（周期瞬移）（`src/game/enemies/index.ts`）
+- 3 种精英词缀：疾影 / 偏导（近乎击退免疫）/ 母巢（持续产卵），时间轴投放并带横幅与警报
+- 2 个 Boss 状态机：泯灭者（环形弹幕 + 蓄力冲锋三态循环）、深渊之眼（双臂螺旋弹幕 + 周期召唤尘埃风暴）（`src/game/enemies/boss.ts`）
+- 波次导演：9 个相位密度爬升（0.9→7.8 个/秒）、按权重抽取敌人池、视野外生成环、0.5s 周期拉回超距敌人、Boss 战压制常规生成（`src/game/director.ts`、`src/data/waves.data.ts`）
+- 20 条时间轴事件：精英预告与投放、3 次虫潮、治疗补给、两次 Boss 战
+- 数值成长：敌人血量超线性（`1+(t/60)^1.42×0.42`）、伤害线性（每分钟 +16%）、同屏密度上限 90→320、经验曲线 `5+7L+1.6L^1.6`
+
+**元进度与持久化**
+
+- 星核经济：击杀/45 + 精英×3 + Boss×12 + 时间/30，胜利 +25；局内精英/Boss/核心拾取即时入账（`src/game/balance.ts` `coresEarned`）
+- 6 节点星核强化树（生命/伤害/移速/拾取/幸运/复活，全满 2415 星核）（`src/data/meta.data.ts`）
+- localStorage 存档 `abyssal-echo.save.v1`：版本字段、防御性合并（非法字段/负数/未知角色过滤钳制）、损坏回落默认、隐私模式静默降级（`src/core/save.ts`）
+
+**表现层（Canvas，全程序化）**
+
+- 程序化精灵图集：启动时合成约 30 个精灵（2× 超采样 + 辉光 + 白色受击剪影），零图片资源（`src/render/atlas.ts`）
+- 渲染器：三层视差星空、参考点阵、深空云气、瞬时 FX（爆炸/光束/电链/冲击环/预警/冻结）、浮动伤害数字（池 160）、低血量红色脉冲暗角（`src/render/renderer.ts`）
+- 相机：速度前瞻跟随 + trauma 震屏（`src/render/camera.ts`）
+- 粒子系统：2200 容量环形覆盖池，火花/辉光/碎片三类（`src/render/particles.ts`）
+- Canvas HUD：XP 条、计时与相位倒计时、等级/击杀/星核、跟随血条、冲刺冷却环、Boss 血条、警告横幅、开局教学提示（`src/render/hud.ts`）
+- 敌人体验细节：出生淡入、缓速/眩晕/受击白闪、精英与 Boss 光环血条、经验宝石 3 倍磁吸与 15 秒后漂移回手
+
+**音频（WebAudio 全合成，零音频文件）**
+
+- 音频引擎：sfx/music 双总线 + 压限器、首次手势解锁、30ms 同类节流（重要音效豁免）、平方感知音量曲线（`src/audio/engine.ts`）
+- 14 条音效配方：射击/命中/死亡/湮灭和弦/拾取/升级琶音/进化/受伤/Boss 警报/警示/爆炸/复活/冲刺/UI（`src/audio/sfx.ts`）
+- 自适应音乐：B 和声小调 / 92 BPM / lookahead 音序器，pad + 低音脉冲 + 琶音 + 打击 + 铃音五层随波次强度呼吸，菜单→战斗无缝切换（`src/audio/music.ts`）
+
+**界面（DOM 覆盖层，zh/en 双语）**
+
+- 9 个应用模式：标题 / 角色选择 / 局内 / 暂停 / 升级 / 结算 / 设置 / 档案馆 / 星核强化（`src/app.ts`、`src/ui/ui.ts`）
+- 档案馆：13 种敌人威胁图鉴（遭遇计数、未遇见显示？？？）+ 旅程统计（累计歼灭/最长幸存/通关数/坠入次数）
+- 设置：音效/音乐/屏幕震动滑条、伤害数字开关、中英切换、清除存档
+- 结算页：胜负标题、新纪录、角色解锁提示、五项统计、星核入账
+
+**工程与质量**
+
+- 分层架构：`core / data / game(sim) / render / audio / ui / app`，模拟层禁止依赖表现层，仅通过 `RunState.events` 三通道（damage/fx/sfx）通信并带长度护栏
+- 对象池（稠密数组、池满覆盖保底）+ 空间哈希网格（CELL=96）支撑 320 同屏敌人
+- 固定步长时钟 + rAF 挂起看门狗：标签页隐藏时定时器接管模拟不中断，恢复无缝衔接（`src/core/clock.ts`）
+- 47 个单元测试（vitest）：种子随机、对象池、数值曲线、存档防御、升级系统、模拟决定性 —— 全部通过
+- 构建管线：Vite 6 + `vite-plugin-singlefile` 产出可双击离线游玩的 `dist/index.html`；`tsc --noEmit` 严格模式（`noUncheckedIndexedAccess` 等）；ESLint；dev 固定端口 5199
+
+[1.0.0]: https://example.invalid/abyssal-echo/releases/tag/v1.0.0

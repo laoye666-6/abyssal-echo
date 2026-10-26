@@ -259,7 +259,7 @@ export class UiManager {
       [t('results.kills'), String(r.kills)],
       [t('results.level'), String(r.level)],
       [t('results.damage'), String(r.damageDealt)],
-      [t('results.cores', { n: r.cores }), '◆'],
+      [t('meta.cores'), `+${r.cores} ◆`],
     ];
     for (const [k, v] of rows) {
       const rowEl = el('div', 'stat-row', `<span class="stat-k">${k}</span><span class="stat-v">${v}</span>`);

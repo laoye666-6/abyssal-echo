@@ -29,6 +29,9 @@ interface DmgNum {
   text: string;
   color: string;
   size: number;
+  amount: number;
+  crit: boolean;
+  toPlayer: boolean;
 }
 
 interface Star { x: number; y: number; s: number; a: number; layer: number }
@@ -38,7 +41,7 @@ export interface RenderOpts {
   shakeMul: number;
 }
 
-const DMG_CAP = 160;
+const DMG_CAP = 90;
 
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
@@ -62,7 +65,7 @@ export class Renderer {
     this.ctx = canvas.getContext('2d')!;
     this.glow = buildGlowBlob();
     for (let i = 0; i < DMG_CAP; i++) {
-      this.dmg.push({ alive: false, x: 0, y: 0, vy: 0, life: 0, max: 1, text: '', color: '#fff', size: 13 });
+      this.dmg.push({ alive: false, x: 0, y: 0, vy: 0, life: 0, max: 1, text: '', color: '#fff', size: 13, amount: 0, crit: false, toPlayer: false });
     }
     for (let i = 0; i < 220; i++) {
       this.stars.push({
@@ -290,9 +293,9 @@ export class Renderer {
 
   private drawGems(state: RunState): void {
     state.gems.forEach((g) => {
-      const pulse = 1 + Math.sin(this.time * 5 + g.id) * 0.12;
-      this.drawGlowAt(g.x, g.y, g.value >= 10 ? 18 : 11, 'rgba(143,232,107,0.7)', g.value >= 10 ? 0.6 : 0.4);
-      this.drawSprite('gem', g.x, g.y, (g.value >= 10 ? 10 : 7) * pulse, this.time * 1.5 + g.id);
+      const pulse = 1 + Math.sin(this.time * 5 + g.id) * 0.14;
+      this.drawGlowAt(g.x, g.y, g.value >= 10 ? 22 : 14, 'rgba(143,232,107,0.9)', g.value >= 10 ? 0.8 : 0.65);
+      this.drawSprite('gem', g.x, g.y, (g.value >= 10 ? 11 : 8) * pulse, this.time * 1.5 + g.id);
     });
   }
 
@@ -548,6 +551,23 @@ export class Renderer {
   // ---------------- 伤害数字 ----------------
 
   pushDamage(x: number, y: number, amount: number, crit: boolean, toPlayer: boolean): void {
+    // 就近合并（70px 内同类数字叠加总量），避免数字海淹没画面
+    for (const d of this.dmg) {
+      if (d.alive && d.toPlayer === toPlayer && d.life > d.max * 0.45) {
+        const dx = d.x - x;
+        const dy = d.y - y;
+        if (dx * dx + dy * dy < 70 * 70) {
+          d.amount += amount;
+          d.text = String(d.amount);
+          d.life = Math.max(d.life, (crit ? 0.7 : 0.5));
+          d.max = Math.max(d.max, d.life);
+          d.color = toPlayer ? '#ff7a7a' : crit || d.crit ? '#ffd75b' : '#eef7ff';
+          d.crit = d.crit || crit;
+          d.size = toPlayer ? 15 : d.crit ? 20 : 15;
+          return;
+        }
+      }
+    }
     let slot: DmgNum | null = null;
     for (const d of this.dmg) {
       if (!d.alive) {
@@ -559,12 +579,15 @@ export class Renderer {
     slot.alive = true;
     slot.x = x;
     slot.y = y;
-    slot.vy = -46;
-    slot.life = crit ? 0.85 : 0.6;
+    slot.vy = -52;
+    slot.amount = amount;
+    slot.crit = crit;
+    slot.toPlayer = toPlayer;
+    slot.life = crit ? 0.7 : 0.5;
     slot.max = slot.life;
     slot.text = String(amount);
-    slot.color = toPlayer ? '#ff7a7a' : crit ? '#ffd75b' : '#e8f4ff';
-    slot.size = toPlayer ? 14 : crit ? 19 : 13;
+    slot.color = toPlayer ? '#ff7a7a' : crit ? '#ffd75b' : '#eef7ff';
+    slot.size = toPlayer ? 15 : crit ? 20 : 15;
   }
 
   private drawDamageNumbers(frameDt: number): void {
@@ -583,12 +606,17 @@ export class Renderer {
       d.y += d.vy * frameDt;
       d.vy *= Math.pow(0.92, frameDt * 60);
       const k = d.life / d.max;
-      ctx.globalAlpha = Math.min(1, k * 2);
-      ctx.font = `700 ${d.size}px ui-monospace, Consolas, monospace`;
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillText(d.text, d.x - ox + 1, d.y - oy + 1);
+      ctx.globalAlpha = Math.min(1, k * 2.2);
+      ctx.font = `800 ${d.size}px ui-monospace, Consolas, monospace`;
+      ctx.fillStyle = 'rgba(4,8,14,0.9)';
+      const tx = d.x - ox;
+      const ty = d.y - oy;
+      ctx.fillText(d.text, tx + 1.2, ty);
+      ctx.fillText(d.text, tx - 1.2, ty);
+      ctx.fillText(d.text, tx, ty + 1.2);
+      ctx.fillText(d.text, tx, ty - 1.2);
       ctx.fillStyle = d.color;
-      ctx.fillText(d.text, d.x - ox, d.y - oy);
+      ctx.fillText(d.text, tx, ty);
     }
     ctx.restore();
     ctx.globalAlpha = 1;

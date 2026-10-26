@@ -225,9 +225,10 @@ function paintEBullet(ctx: CanvasRenderingContext2D, r: number): void {
 
 function paintMote(ctx: CanvasRenderingContext2D, r: number): void {
   ctx.shadowColor = 'rgba(143,232,107,0.9)';
-  circle(ctx, 0, 0, r, 'rgba(50,80,40,0.9)', '#8fe86b', 1.6);
+  circle(ctx, 0, 0, r, 'rgba(38,66,32,0.95)', '#8fe86b', 2);
   ctx.shadowBlur = 0;
-  circle(ctx, -r * 0.15, -r * 0.15, r * 0.45, 'rgba(143,232,107,0.85)');
+  circle(ctx, -r * 0.12, -r * 0.12, r * 0.52, 'rgba(143,232,107,1)');
+  circle(ctx, -r * 0.3, -r * 0.3, r * 0.18, 'rgba(230,255,220,0.95)');
 }
 
 function paintDart(ctx: CanvasRenderingContext2D, r: number): void {

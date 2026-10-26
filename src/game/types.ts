@@ -141,7 +141,7 @@ export type EnemyKindId =
   | 'boss_devourer' | 'boss_eye';
 
 export type EnemyBehaviorId =
-  | 'chaser' | 'weaver' | 'charger' | 'shooter' | 'orbiter'
+  | 'chaser' | 'weaver' | 'shooter'
   | 'splitter' | 'tank' | 'phaser';
 
 export interface EnemyDef {

@@ -83,13 +83,13 @@ export const ENEMY_DEFS: Record<EnemyKindId, EnemyDef> = {
   // ------- Boss -------
   boss_devourer: {
     id: 'boss_devourer', behavior: 'chaser',
-    hp: 2600, speed: 74, contactDps: 40, radius: 34, xp: 80,
+    hp: 2200, speed: 74, contactDps: 40, radius: 34, xp: 80,
     weight: 0, batch: 1, knockbackResist: 1, tier: 'boss',
     color: '#ff5b5b',
   },
   boss_eye: {
     id: 'boss_eye', behavior: 'chaser',
-    hp: 6600, speed: 58, contactDps: 50, radius: 40, xp: 120,
+    hp: 5600, speed: 58, contactDps: 50, radius: 40, xp: 120,
     weight: 0, batch: 1, knockbackResist: 1, tier: 'boss',
     color: '#ff4bd8',
   },
