@@ -214,6 +214,56 @@ function paintOrbitCorona(ctx: CanvasRenderingContext2D, r: number): void {
   ], 'rgba(255,224,130,0.95)', '#fff6d8', 1.2);
 }
 
+function paintArcIcon(ctx: CanvasRenderingContext2D, r: number): void {
+  ctx.shadowColor = 'rgba(155,208,255,1)';
+  ctx.strokeStyle = '#9bd0ff';
+  ctx.lineWidth = 2.6;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.7, -r * 0.9);
+  ctx.lineTo(r * 0.15, -r * 0.25);
+  ctx.lineTo(-r * 0.2, -r * 0.1);
+  ctx.lineTo(r * 0.7, r * 0.9);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 1.1;
+  ctx.stroke();
+}
+
+function paintLanceIcon(ctx: CanvasRenderingContext2D, r: number): void {
+  ctx.shadowColor = 'rgba(139,255,240,1)';
+  poly(ctx, [
+    [-r * 0.9, -r * 0.28], [r * 0.7, -r * 0.14], [r * 1.1, 0], [r * 0.7, r * 0.14], [-r * 0.9, r * 0.28],
+  ], 'rgba(20,70,70,0.9)', '#8bfff0', 1.8);
+  ctx.shadowBlur = 0;
+  poly(ctx, [
+    [-r * 0.7, -r * 0.1], [r * 0.4, -r * 0.05], [r * 0.4, r * 0.05], [-r * 0.7, r * 0.1],
+  ], '#d8fffb');
+}
+
+function paintFrostIcon(ctx: CanvasRenderingContext2D, r: number): void {
+  ctx.shadowColor = 'rgba(191,232,255,1)';
+  ctx.strokeStyle = '#bfe8ff';
+  ctx.lineWidth = 2.2;
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(a) * r * 0.95, Math.sin(a) * r * 0.95);
+    ctx.stroke();
+    const bx = Math.cos(a) * r * 0.62;
+    const by = Math.sin(a) * r * 0.62;
+    ctx.beginPath();
+    ctx.moveTo(bx + Math.cos(a + 1.2) * r * 0.22, by + Math.sin(a + 1.2) * r * 0.22);
+    ctx.lineTo(bx, by);
+    ctx.lineTo(bx + Math.cos(a - 1.2) * r * 0.22, by + Math.sin(a - 1.2) * r * 0.22);
+    ctx.stroke();
+  }
+  ctx.shadowBlur = 0;
+  circle(ctx, 0, 0, r * 0.16, '#eafaff');
+}
+
 function paintEBullet(ctx: CanvasRenderingContext2D, r: number): void {
   ctx.shadowColor = 'rgba(255,91,91,1)';
   circle(ctx, 0, 0, r * 0.75, '#ff5b5b');
@@ -376,6 +426,9 @@ const SIZES: Record<string, number> = {
   pr_drone: 7,
   pr_orbit: 8,
   pr_orbit_corona: 9,
+  icon_arc: 13,
+  icon_lance: 13,
+  icon_frost: 13,
   ebullet: 7,
   enemy_mote: 10,
   enemy_dart: 11,
@@ -407,6 +460,9 @@ const PAINTERS: Record<string, Painter> = {
   pr_drone: paintDrone,
   pr_orbit: paintOrbitBlade,
   pr_orbit_corona: paintOrbitCorona,
+  icon_arc: paintArcIcon,
+  icon_lance: paintLanceIcon,
+  icon_frost: paintFrostIcon,
   ebullet: paintEBullet,
   enemy_mote: paintMote,
   enemy_dart: paintDart,

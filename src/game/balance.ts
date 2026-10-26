@@ -12,7 +12,7 @@ export const RUN_HARD_CAP = 660;
 
 /** 经验曲线：升到 level+1 所需 XP。 */
 export function xpToNext(level: number): number {
-  return Math.round(5 + level * 7 + Math.pow(level, 1.6) * 1.6);
+  return Math.round(4 + level * 5 + Math.pow(level, 1.6) * 1.5);
 }
 
 /** 敌人属性随时间成长。1.0 起步，10 分钟约 6 倍血量、2.6 倍伤害。 */

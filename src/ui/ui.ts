@@ -75,9 +75,9 @@ export class UiManager {
       orbit: 'pr_orbit', orbit_corona: 'pr_orbit_corona',
       nova: 'pr_nova', nova_collapse: 'pr_nova_collapse',
       shard: 'pr_shard', shard_mirror: 'pr_shard_mirror',
-      arc: 'pr_orbit', lance: 'pr_pulse', drones: 'pr_drone', frost: 'pr_nova',
-      arc_tempest: 'pr_orbit', lance_singularity: 'pr_pulse',
-      drones_hive: 'pr_drone', frost_zero: 'pr_nova',
+      arc: 'icon_arc', lance: 'icon_lance', drones: 'pr_drone', frost: 'icon_frost',
+      arc_tempest: 'icon_arc', lance_singularity: 'icon_lance',
+      drones_hive: 'pr_drone', frost_zero: 'icon_frost',
     };
     return map[id] ?? 'pr_pulse';
   }

@@ -50,6 +50,7 @@ export class Renderer {
   private stars: Star[] = [];
   private fx: TransientFx[] = [];
   private dmg: DmgNum[] = [];
+  private dashTrail: { x: number; y: number; rot: number; life: number }[] = [];
   private w = 0;
   private h = 0;
   private dpr = 1;
@@ -338,12 +339,24 @@ export class Renderer {
   private drawPlayer(state: RunState): void {
     const p = state.player;
     const blink = p.iframe > 0 ? (Math.sin(this.time * 40) > 0 ? 0.45 : 0.9) : 1;
+    // 冲刺残影：冲刺期间记录轨迹点，渐隐重绘
+    if (p.dashT > 0) {
+      this.dashTrail.push({ x: p.x, y: p.y, rot: p.facing + Math.PI / 2, life: 0.26 });
+      if (this.dashTrail.length > 12) this.dashTrail.shift();
+      this.drawGlowAt(p.x, p.y, 60, 'rgba(160,240,255,0.9)', 0.5);
+    }
+    for (let i = this.dashTrail.length - 1; i >= 0; i--) {
+      const g = this.dashTrail[i]!;
+      g.life -= 0.016;
+      if (g.life <= 0) {
+        this.dashTrail.splice(i, 1);
+        continue;
+      }
+      this.drawSprite('player', g.x, g.y, 15, g.rot, g.life * 1.6);
+    }
     // 引擎尾焰粒子由 App 层每步生成；这里画光晕
     this.drawGlowAt(p.x, p.y, 34, 'rgba(91,231,255,0.7)', 0.4);
     this.drawSprite('player', p.x, p.y, 15, p.facing + Math.PI / 2, blink);
-    if (p.dashT > 0) {
-      this.drawGlowAt(p.x, p.y, 60, 'rgba(160,240,255,0.9)', 0.5);
-    }
   }
 
   // ---------------- FX ----------------
@@ -524,6 +537,7 @@ export class Renderer {
         break;
       case 'enemySpawn':
         this.fx.push({ kind: 'enemySpawn', x: ev.x, y: ev.y, x2: 0, y2: 0, r: ev.r ?? 20, color: ev.color, t: 0, max: 0.35 });
+        if ((ev.r ?? 0) >= 28) this.camera.kick(0.5); // 精英/Boss 出场震屏
         break;
       case 'enemyDie':
         this.particles.burst(ev.x, ev.y, ev.color, 7 + Math.round((ev.r ?? 10) / 3), 190, { size: 2.4, life: 0.5, kind: 'shard' });

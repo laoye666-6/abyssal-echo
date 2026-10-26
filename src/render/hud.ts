@@ -8,6 +8,8 @@ import type { Camera } from './camera';
 export class Hud {
   private bannerText = '';
   private bannerT = 0;
+  /** 平滑显示的生命值（血条流动感） */
+  private hpShown = 1;
 
   constructor(
     private readonly renderer: Renderer,
@@ -63,8 +65,13 @@ export class Hud {
     ctx.fillStyle = '#ffc45b';
     ctx.fillText(`◆ ${state.cores}`, w - 16, 34);
 
-    // ---- 玩家血条（跟随玩家） ----
-    const hpFrac = clamp(p.hp / state.stats.maxHp, 0, 1);
+    // ---- 玩家血条（跟随玩家，平滑流动） ----
+    const hpTarget = clamp(p.hp / state.stats.maxHp, 0, 1);
+    // 受击时快速下降、回复时缓慢追赶
+    this.hpShown = hpTarget < this.hpShown
+      ? Math.max(hpTarget, this.hpShown - frameDt * 1.6)
+      : this.hpShown + (hpTarget - this.hpShown) * Math.min(1, frameDt * 3);
+    const hpFrac = this.hpShown;
     const bw = 44;
     const bx = p.x - ox - bw / 2;
     const by = p.y - oy + 26;

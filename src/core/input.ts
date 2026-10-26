@@ -19,6 +19,9 @@ export class Input {
   /** 消费式：本帧刚按下 */
   private justPressed = new Set<ActionId>();
 
+  /** 触屏虚拟摇杆向量（-1..1），非零时优先于键盘 */
+  private virtualMove: { x: number; y: number } = { x: 0, y: 0 };
+
   attach(target: Window): void {
     target.addEventListener('keydown', (e) => {
       const a = KEYMAP[e.code];
@@ -50,8 +53,21 @@ export class Input {
     return this.justPressed.has(a);
   }
 
+  /** 触屏层写入虚拟摇杆向量 */
+  setVirtualMove(x: number, y: number): void {
+    this.virtualMove.x = x;
+    this.virtualMove.y = y;
+  }
+
+  /** 触屏虚拟按键（dash/pause 等） */
+  virtualPress(a: ActionId): void {
+    this.pressedFrame.add(a);
+  }
+
   /** 归一化移动向量 */
   moveVec(): { x: number; y: number } {
+    const v = this.virtualMove;
+    if (v.x !== 0 || v.y !== 0) return { x: v.x, y: v.y };
     let x = 0;
     let y = 0;
     if (this.held('left')) x -= 1;
