@@ -167,7 +167,7 @@ export class GameApp {
     // 引擎尾焰粒子
     this.engineTrailT -= dt;
     if (this.engineTrailT <= 0 && Math.hypot(state.player.vx, state.player.vy) > 40) {
-      this.engineTrailT = 0.03;
+      this.engineTrailT = 0.055;
       const a = state.player.facing + Math.PI;
       this.particles.spawn({
         x: state.player.x + Math.cos(a) * 14,

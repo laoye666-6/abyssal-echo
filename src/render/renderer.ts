@@ -2,6 +2,7 @@ import type { RunState, FxEvent } from '@/game/types';
 import { ENEMY_DEFS } from '@/data/enemies.data';
 import type { Atlas } from './atlas';
 import { buildGlowBlob } from './atlas';
+import { GlowCache } from './glow';
 import type { Camera } from './camera';
 import type { Particles } from './particles';
 import { clamp } from '@/core/math';
@@ -46,8 +47,10 @@ const DMG_CAP = 90;
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private glow: HTMLCanvasElement;
+  private glowCache = new GlowCache();
   private vignette: HTMLCanvasElement | null = null;
   private stars: Star[] = [];
+  private nebulae: HTMLCanvasElement[] = [];
   private fx: TransientFx[] = [];
   private dmg: DmgNum[] = [];
   private dashTrail: { x: number; y: number; rot: number; life: number }[] = [];
@@ -55,6 +58,12 @@ export class Renderer {
   private h = 0;
   private dpr = 1;
   private time = 0;
+
+  // ---- 自适应画质：EMA 帧时间监控，卡顿自动降档、流畅自动回升 ----
+  /** 2=高（DPR≤1.5 + 全特效） 1=中（DPR1） 0=低（DPR1 + 关云气/减辉光） */
+  qualityTier = 2;
+  private emaDt = 0.016;
+  private tierCooldown = 0;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -76,16 +85,42 @@ export class Renderer {
         layer: Math.floor(Math.random() * 3),
       });
     }
+    this.buildNebulae();
     this.resize();
   }
 
+  /** 深空云气：两张 512² 贴图（青/紫），每帧 drawImage 平铺。 */
+  private buildNebulae(): void {
+    this.nebulae = [];
+    for (const rgb of ['40,80,140', '90,40,120']) {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 512;
+      const g = c.getContext('2d')!;
+      const grad = g.createRadialGradient(256, 256, 0, 256, 256, 256);
+      grad.addColorStop(0, `rgba(${rgb},0.10)`);
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = grad;
+      g.fillRect(0, 0, 512, 512);
+      this.nebulae.push(c);
+    }
+  }
+
   resize(): void {
-    this.dpr = Math.min(2, window.devicePixelRatio || 1);
+    // 高档位允许最高 1.5 DPR（2.0 会带来 4 倍像素填充，是低帧率主因之一）
+    const cap = this.qualityTier >= 2 ? Math.min(1.5, window.devicePixelRatio || 1) : 1;
+    this.dpr = cap;
     this.w = this.canvas.clientWidth || window.innerWidth;
     this.h = this.canvas.clientHeight || window.innerHeight;
     this.canvas.width = Math.round(this.w * this.dpr);
     this.canvas.height = Math.round(this.h * this.dpr);
     this.vignette = null;
+  }
+
+  private setTier(t: number): void {
+    if (t === this.qualityTier) return;
+    this.qualityTier = t;
+    this.resize();
   }
 
   setOptions(next: Partial<RenderOpts>): void {
@@ -99,6 +134,18 @@ export class Renderer {
   render(state: RunState | null, frameDt: number, lowHp: boolean): void {
     const ctx = this.ctx;
     this.time += frameDt;
+
+    // 自适应画质：>19ms（≈52fps 以下）快速降档，<14.5ms 持续回升 —— 目标稳 60fps
+    this.emaDt = this.emaDt * 0.92 + Math.min(frameDt, 0.25) * 0.08;
+    if (this.tierCooldown > 0) this.tierCooldown--;
+    else if (this.qualityTier > 0 && this.emaDt > 0.019) {
+      this.setTier(this.qualityTier - 1);
+      this.tierCooldown = 180;
+    } else if (this.qualityTier < 2 && this.emaDt < 0.0145) {
+      this.setTier(this.qualityTier + 1);
+      this.tierCooldown = 600;
+    }
+
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
@@ -126,7 +173,8 @@ export class Renderer {
 
     ctx.restore();
 
-    this.particles.drawWorld(ctx, ox, oy);
+    // 限制粒子绘制量（实测：粒子满载 + lighter 混合是最大填充开销）
+    this.particles.drawWorld(ctx, ox, oy, this.glow, this.qualityTier === 2 ? 1100 : this.qualityTier === 1 ? 800 : 500);
     this.drawFxScreen(state, frameDt);
     if (this.opts.showDamageNumbers) this.drawDamageNumbers(frameDt);
     this.drawVignette(lowHp);
@@ -139,7 +187,7 @@ export class Renderer {
     const ox = this.camera.ox;
     const oy = this.camera.oy;
 
-    // 星尘三层视差
+    // 星尘三层视差（逐星小方块 —— 远比整层贴图合成便宜）
     const tile = Math.max(this.w, this.h) * 1.6;
     for (const st of this.stars) {
       const par = 0.15 + st.layer * 0.22;
@@ -163,25 +211,24 @@ export class Renderer {
       }
     }
 
-    // 深空云气（大径向渐变，极低透明度）
-    const nebTile = 1800;
-    ctx.globalCompositeOperation = 'screen';
-    const par = 0.35;
-    for (let i = 0; i < 4; i++) {
-      const nx0 = (i * 761) % nebTile;
-      const ny0 = (i * 1201) % nebTile;
-      const sx = (((nx0 - ox * par) % nebTile) + nebTile) % nebTile - nebTile * 0.3;
-      const sy = (((ny0 - oy * par) % nebTile) + nebTile) % nebTile - nebTile * 0.3;
-      const r = 480 + (i % 2) * 260;
-      if (sx + r < 0 || sx - r > this.w || sy + r < 0 || sy - r > this.h) continue;
-      const hue = i % 2 === 0 ? 'rgba(40,80,140,0.10)' : 'rgba(90,40,120,0.08)';
-      const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
-      g.addColorStop(0, hue);
-      g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(sx - r, sy - r, r * 2, r * 2);
+    // 深空云气（预渲染贴图，screen 混合；低档位跳过）
+    if (this.qualityTier >= 1) {
+      const nebTile = 1800;
+      ctx.globalCompositeOperation = 'screen';
+      const par = 0.35;
+      for (let i = 0; i < 4; i++) {
+        const nx0 = (i * 761) % nebTile;
+        const ny0 = (i * 1201) % nebTile;
+        const sx = (((nx0 - ox * par) % nebTile) + nebTile) % nebTile - nebTile * 0.3;
+        const sy = (((ny0 - oy * par) % nebTile) + nebTile) % nebTile - nebTile * 0.3;
+        const r = 480 + (i % 2) * 260;
+        if (sx + r < 0 || sx - r > this.w || sy + r < 0 || sy - r > this.h) continue;
+        const tex = this.nebulae[i % 2];
+        if (!tex) continue;
+        ctx.drawImage(tex, sx - r, sy - r, r * 2, r * 2);
+      }
+      ctx.globalCompositeOperation = 'source-over';
     }
-    ctx.globalCompositeOperation = 'source-over';
   }
 
   // ---------------- 实体 ----------------
@@ -205,23 +252,14 @@ export class Renderer {
     ctx.restore();
   }
 
+  /** 着色辉光：GlowCache 预渲染贴图，单次 drawImage（每帧数百次调用的热路径）。 */
   private drawGlowAt(x: number, y: number, r: number, color: string, alpha: number): void {
     const ctx = this.ctx;
+    const tex = this.glowCache.get(color, r);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = alpha;
-    // 着色辉光：先画 glow，再叠 color 调色（用 filter 太慢，直接双层）
-    ctx.drawImage(this.glow, x - r, y - r, r * 2, r * 2);
-    ctx.globalAlpha = alpha * 0.85;
-    ctx.globalCompositeOperation = 'source-over';
-    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, color);
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.globalAlpha = alpha * 0.5;
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.drawImage(tex, x - r, y - r, r * 2, r * 2);
     ctx.restore();
   }
 
@@ -245,7 +283,7 @@ export class Renderer {
         ctx.restore();
       }
       if (e.slow > 0) {
-        this.drawGlowAt(e.x, e.y, e.r * 1.5, 'rgba(120,200,255,0.5)', 0.35 * spawnA);
+        this.drawGlowAt(e.x, e.y, e.r * 1.5, '#78c8ff', 0.4 * spawnA);
       }
 
       const rot = def.behavior === 'chaser' || def.behavior === 'weaver'
@@ -287,7 +325,7 @@ export class Renderer {
 
   private drawEBullets(state: RunState): void {
     state.ebullets.forEach((b) => {
-      this.drawGlowAt(b.x, b.y, b.r * 2.4, 'rgba(255,91,91,0.8)', 0.5);
+      this.drawGlowAt(b.x, b.y, b.r * 2.4, '#ff5b5b', 0.5);
       this.drawSprite('ebullet', b.x, b.y, b.r, 0);
     });
   }
@@ -295,7 +333,7 @@ export class Renderer {
   private drawGems(state: RunState): void {
     state.gems.forEach((g) => {
       const pulse = 1 + Math.sin(this.time * 5 + g.id) * 0.14;
-      this.drawGlowAt(g.x, g.y, g.value >= 10 ? 22 : 14, 'rgba(143,232,107,0.9)', g.value >= 10 ? 0.8 : 0.65);
+      this.drawGlowAt(g.x, g.y, g.value >= 10 ? 22 : 14, '#8fe86b', g.value >= 10 ? 0.8 : 0.65);
       this.drawSprite('gem', g.x, g.y, (g.value >= 10 ? 11 : 8) * pulse, this.time * 1.5 + g.id);
     });
   }
@@ -303,7 +341,7 @@ export class Renderer {
   private drawPickups(state: RunState): void {
     state.pickups.forEach((pk) => {
       const bob = Math.sin(this.time * 3 + pk.id) * 3;
-      const color = pk.kind === 'heal' ? 'rgba(143,232,107,0.8)' : pk.kind === 'bomb' ? 'rgba(255,215,91,0.8)' : 'rgba(255,196,91,0.9)';
+      const color = pk.kind === 'heal' ? '#8fe86b' : pk.kind === 'bomb' ? '#ffd75b' : '#ffc45b';
       this.drawGlowAt(pk.x, pk.y + bob, 26, color, 0.55);
       this.drawSprite(`pick_${pk.kind}`, pk.x, pk.y + bob, 13, this.time * 0.8);
     });
@@ -313,10 +351,10 @@ export class Renderer {
     state.attendants.forEach((a) => {
       if (a.kind === 'orbit') {
         const key = a.ownerWeapon === 'orbit_corona' ? 'pr_orbit_corona' : 'pr_orbit';
-        this.drawGlowAt(a.x, a.y, a.r * 2.4, 'rgba(140,230,255,0.7)', 0.4);
+        this.drawGlowAt(a.x, a.y, a.r * 2.4, '#8ce6ff', 0.4);
         this.drawSprite(key, a.x, a.y, a.r, a.angle * 3);
       } else if (a.kind === 'drone') {
-        this.drawGlowAt(a.x, a.y, a.r * 2, 'rgba(120,255,190,0.5)', 0.3);
+        this.drawGlowAt(a.x, a.y, a.r * 2, '#78ffbe', 0.3);
         this.drawSprite('pr_drone', a.x, a.y, a.r, a.angle + Math.PI / 2);
       } else if (a.kind === 'aura') {
         const ctx = this.ctx;
@@ -343,7 +381,7 @@ export class Renderer {
     if (p.dashT > 0) {
       this.dashTrail.push({ x: p.x, y: p.y, rot: p.facing + Math.PI / 2, life: 0.26 });
       if (this.dashTrail.length > 12) this.dashTrail.shift();
-      this.drawGlowAt(p.x, p.y, 60, 'rgba(160,240,255,0.9)', 0.5);
+      this.drawGlowAt(p.x, p.y, 60, '#a0f0ff', 0.5);
     }
     for (let i = this.dashTrail.length - 1; i >= 0; i--) {
       const g = this.dashTrail[i]!;
@@ -355,7 +393,7 @@ export class Renderer {
       this.drawSprite('player', g.x, g.y, 15, g.rot, g.life * 1.6);
     }
     // 引擎尾焰粒子由 App 层每步生成；这里画光晕
-    this.drawGlowAt(p.x, p.y, 34, 'rgba(91,231,255,0.7)', 0.4);
+    this.drawGlowAt(p.x, p.y, 34, '#5be7ff', 0.4);
     this.drawSprite('player', p.x, p.y, 15, p.facing + Math.PI / 2, blink);
   }
 
@@ -383,17 +421,10 @@ export class Renderer {
       switch (f.kind) {
         case 'explosion': {
           const r = f.r * (0.35 + 0.65 * k);
-          ctx.globalAlpha = (1 - k) * 0.9;
-          const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r);
-          g.addColorStop(0, f.color);
-          g.addColorStop(0.7, f.color);
-          g.addColorStop(1, 'rgba(0,0,0,0)');
-          ctx.fillStyle = g;
-          ctx.globalAlpha = (1 - k) * 0.55;
-          ctx.beginPath();
-          ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.globalAlpha = (1 - k);
+          const tex = this.glowCache.get(f.color, r);
+          ctx.globalAlpha = (1 - k) * 0.75;
+          ctx.drawImage(tex, f.x - r, f.y - r, r * 2, r * 2);
+          ctx.globalAlpha = 1 - k;
           ctx.strokeStyle = '#ffffff';
           ctx.lineWidth = 2.5 * (1 - k) + 0.5;
           ctx.beginPath();

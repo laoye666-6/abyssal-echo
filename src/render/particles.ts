@@ -20,7 +20,7 @@ export interface Particle {
   vrot: number;
 }
 
-const CAP = 2200;
+const CAP = 1400;
 
 export class Particles {
   readonly items: Particle[] = [];
@@ -109,19 +109,23 @@ export class Particles {
     return n;
   }
 
-  /** 世界坐标绘制（调用方已 translate 相机）。glow 需要 glow 贴图。 */
-  drawWorld(ctx: CanvasRenderingContext2D, ox: number, oy: number, glow?: HTMLCanvasElement): void {
+  /** 世界坐标绘制（调用方已 translate 相机）。glow 需要 glow 贴图。maxDraw=0 表示不限。 */
+  drawWorld(ctx: CanvasRenderingContext2D, ox: number, oy: number, glow?: HTMLCanvasElement, maxDraw = 0): void {
     ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    let drawn = 0;
     for (const p of this.items) {
       if (!p.alive) continue;
+      if (maxDraw > 0 && drawn >= maxDraw) break;
       const k = p.life / p.maxLife;
       const sx = p.x - ox;
       const sy = p.y - oy;
       if (sx < -30 || sx > ctx.canvas.width + 30 || sy < -30 || sy > ctx.canvas.height + 30) continue;
-      ctx.globalCompositeOperation = 'lighter';
+      drawn++;
       if (p.kind === 'glow' && glow) {
         ctx.globalAlpha = k * 0.8;
-        ctx.drawImage(glow, sx - p.size * 3, sy - p.size * 3, p.size * 6, p.size * 6);
+        const gs = p.size * 3;
+        ctx.drawImage(glow, sx - gs, sy - gs, gs * 2, gs * 2);
       } else if (p.kind === 'shard') {
         ctx.globalAlpha = k;
         ctx.save();
