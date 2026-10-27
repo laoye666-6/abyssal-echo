@@ -73,15 +73,17 @@ describe('v1.1 新武器', () => {
     expect(boss.alive).toBe(true);
   });
 
-  it('mines：布防期内不引爆，布防完成后敌近起爆', () => {
+  it('mines：布防期内不引爆，布防完成后敌近起爆（update 自计时布雷）', () => {
     const s = makeState();
     const w = weapon('mines');
     const grid = new EnemyGrid();
     s.gridRef = grid;
-    mines.fire(s, w, s.stats);
+    // update 自计时布雷（w.cd 初始 0）
+    mines.update!(s, w, s.stats, DT);
     const mine = s.projectiles.items.find((p) => p.alive && p.kind === 'mine');
     expect(mine).toBeTruthy();
     expect(mine!.data0).toBeGreaterThan(0); // 布防倒计时
+    expect(w.cd).toBeGreaterThan(0); // 冷却已重置，不会同帧重复布雷
     const target = place(s, 'mote', mine!.x + 20, mine!.y)!;
     grid.insert(target);
     // 布防期内：不爆
@@ -99,7 +101,7 @@ describe('v1.1 新武器', () => {
     const w = weapon('mines_bloom');
     const grid = new EnemyGrid();
     s.gridRef = grid;
-    mines.fire(s, w, s.stats);
+    mines.update!(s, w, s.stats, DT);
     const placed = s.projectiles.items.filter((p) => p.alive && p.kind === 'mine_bloom' && p.data1 === 0);
     expect(placed.length).toBe(2);
     // 越过布防与寿命（6s）→ 自爆（寿命扣减发生在主循环投射物段，这里模拟之）

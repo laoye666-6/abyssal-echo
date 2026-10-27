@@ -84,16 +84,22 @@ export const mines: WeaponBehavior = {
   cooldown(level) {
     return Math.max(1.1, 2.4 - 0.14 * (level - 1));
   },
-  fire(state: RunState, w: WeaponInstance, stats: Stats): void {
-    const evolved = w.id === 'mines_bloom';
-    const count = evolved ? 2 : 1 + (w.level >= 4 ? 1 : 0);
-    const dmg = mineDmg(w, stats);
-    for (let i = 0; i < count; i++) {
-      spawnMine(state, evolved ? 'mine_bloom' : 'mine', dmg, stats.areaMul);
-    }
-    state.events.sfx.push({ name: 'shoot', v: 0.2, p: 0.5 });
+  fire() {
+    /* 布雷在 update 中自计时（分发器不对带 update 的武器调 fire） */
   },
-  update(state: RunState, _w: WeaponInstance, stats: Stats, dt: number): void {
+  update(state: RunState, w: WeaponInstance, stats: Stats, dt: number): void {
+    // 布雷：w.cd 由 sim 主循环统一扣减，这里只负责在归零时重置（frost 光环同模式）
+    if (w.cd <= 0) {
+      const evolved = w.id === 'mines_bloom';
+      const count = evolved ? 2 : 1 + (w.level >= 4 ? 1 : 0);
+      const dmg = mineDmg(w, stats);
+      for (let i = 0; i < count; i++) {
+        spawnMine(state, evolved ? 'mine_bloom' : 'mine', dmg, stats.areaMul);
+      }
+      state.events.sfx.push({ name: 'shoot', v: 0.2, p: 0.5 });
+      w.cd = mines.cooldown(w.level) * stats.cooldownMul;
+    }
+
     const grid = state.gridRef as EnemyGrid | undefined;
     const areaMul = stats.areaMul;
     state.projectiles.forEach((pr) => {
