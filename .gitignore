@@ -3,3 +3,14 @@ dist/
 coverage/
 *.log
 .DS_Store
+
+# Android / Capacitor
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+*.keystore
+keystore.properties

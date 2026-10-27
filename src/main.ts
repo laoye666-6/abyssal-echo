@@ -1,6 +1,7 @@
 import './ui/styles.css';
 import { GameApp } from '@/app';
 import { TouchControls } from '@/ui/touch';
+import { MobileGuard } from '@/ui/mobile';
 
 function boot(): void {
   const appRoot = document.getElementById('app');
@@ -20,6 +21,8 @@ function boot(): void {
     },
     () => app.mode === 'running',
   );
+  // 移动端加固：横屏提示 + 禁长按菜单
+  new MobileGuard(app);
   // QA/调试句柄（不影响游戏逻辑）
   (window as unknown as { __app: GameApp }).__app = app;
 
