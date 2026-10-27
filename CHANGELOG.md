@@ -2,6 +2,54 @@
 
 本项目遵循 [语义化版本（SemVer）](https://semver.org/lang/zh-CN/) 与 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 格式。
 
+## [1.1.0] - 2026-10-28
+
+「无尽回廊」内容版本：两种新玩法模式、成就系统、2 把新武器（含进化）、2 条新被动、第 4 位角色与 1 种新精英。对应提交：`5365b29`（v1.1 核心）→ `be7b46f`（27 个新单测）→ `874eace`（浏览器实测修复与截图）。
+
+### Added
+
+**运行模式（`src/game/types.ts` `RunMode`）**
+
+- 无尽模式「深渊回廊」：9:00 击杀深渊之眼不再结算，进入下一循环——导演时间轴以循环起点重放（`src/game/director.ts`），敌人 HP 叠乘 `1.12^loop`、经验乘 `1+0.15·loop`（`src/game/balance.ts` `loopHpMul/loopXpMul`），无 11:00 硬上限（`src/game/sim.ts`）；深度语义 = 所处回廊序号 = 已清循环 +1，HUD 顶栏与结算屏一致；击败任意 Boss 后解锁
+- 每日挑战：`fnv1a("abyssal-daily-" + 日期)` 决定性种子，全日期玩家同一开局；角色按日期轮换（可试用未解锁角色，`src/data/daily.data.ts` `DAILY_ROSTER`）；6 选 1 修正器（敌群提速/磁吸风暴/巨人脆化/厚甲/先手/玻璃大炮，种子抽取）；计分 = 击杀 + 存活秒×2 + 等级×20 + 胜利 500，当日最佳持久化（`meta.dailyBest`）
+- 角色选择屏新增模式切换（标准/无尽），锁定态显示解锁条件；标题菜单新增「每日挑战」独立面板（日期/当日角色/修正器/最佳）与「成就」入口
+
+**成就系统（`src/game/achievements.ts`）**
+
+- 20 个成就，三通道判定：局内实时（`evaluateLive`，1s 节流）、结算扫（`evaluateAfterRun`）、元进度（`evaluateMeta`，购买强化后即检）；解锁即时持久化 + 全局 DOM toast（不随屏幕重建消失）
+- 成就面板：解锁金标 / 锁定灰态 + 可量化进度（如生涯星核 688/1000）
+- 新角色解锁：织夜者 = 完成一次武器进化
+
+**新内容**
+
+- 武器「虚空收割」：朝向 120° 锥形挥砍（半径 95+6·lv、强击退 170），无弹道直接结算（`src/game/weapons/scythe.ts`）；进化「蚀月」：360° 环斩 + 斩杀 12% 以下非 Boss（`scythe_eclipse`）
+- 武器「星棘雷」：布设感应地雷（0.4s 布防、敌近 70px 或 6s 自爆、AoE 105px）；进化「星棘花海」：双雷连布 + 爆炸留下 2.5s 持续伤害区（`src/game/weapons/mines.ts`，用 Projectile data0/data1 承载布防与伤害区）
+- 被动「回响护盾 aegis」（护甲 +1.2、生命 +10 / 级）与「贪婪协议 greed」（经验 +15%、幸运 +0.6 / 级），各 5 级（`src/data/passives.data.ts`）
+- 第 4 位角色「织夜者 vesper」：冷却 −8%、HP 90、速度 210，初始武器虚空收割（`src/data/characters.data.ts`）
+- 新精英「回响体 elite_echo」：dasher 行为——接近、0.8s 蓄力预警、3.2× 速度突进 0.5s；击杀必掉星核拾取物（`src/game/enemies/index.ts`、`src/data/enemies.data.ts`）；加入标准时间轴 8:20 与无尽循环时间轴
+- 新特效：弧形斩击 `slash`（带起止角）、地雷与伤害区绘制（`src/render/renderer.ts`）、图集新增 5 个程序化精灵（mine/bloom/elite_echo/scythe 图标/mines 图标）
+
+**元进度与统计**
+
+- 存档 v2（`abyssal-echo.save.v1` 结构不变，`SAVE_VERSION = 2`）：新增 achievements / totalCoresEarned / bestKills / bestLevel / totalPlaySeconds / endlessBestDepth / dailyBest / charWins；v1 旧档无缝迁移（同解析路径 + 新字段补默认）
+- 档案馆统计页新增 7 项生涯数据；结算屏按模式展示（无尽深度 / 每日得分与当日纪录 / 进化次数）
+- 设置新增「低闪模式」（抑制低血红晕脉冲，光敏友好）
+
+### Changed
+
+- 经验宝石价值在无尽循环中随 `loopXpMul` 提升（`src/game/combat.ts`）
+- 精英击杀掉落分支化：回响体必掉星核，其余精英维持 35% 治疗掉率
+
+### Fixed
+
+- 存档角色白名单缺 `vesper`，解锁后无法持久化（浏览器实测发现，`src/core/save.ts`）
+- 回廊深度语义不一致：HUD 显示 loop+1 而结算写 loop → 统一为 loop+1（`src/app.ts`、`src/game/upgrades.ts`）
+
+### Tests
+
+- 47 → 74 个单元测试：新增 modes（无尽循环/缩放/硬上限豁免/每日种子与计分）、achievements（20 定义与三通道判定）、weapons（锥形命中/斩杀/布防起爆/伤害区/被动数值）、存档 v1→v2 迁移共 27 例
+- 浏览器实测：无尽模式端到端（机器人 21:30 完成第一循环，横幅/深度/不误判胜利全验证）、每日修正器与计分、成就实时解锁 12/20、图鉴 14/14、新武器实战与特效渲染
+
 ## [1.0.0] - 2026-10-27
 
 首个完整可玩版本：《星渊回响》ABYSSAL ECHO —— survivors-like roguelite，TypeScript + Canvas 2D + WebAudio，纯前端零外部资源，构建产物为单文件 HTML。

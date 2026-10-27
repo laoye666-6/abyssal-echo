@@ -8,12 +8,12 @@
 
 ### 无尽模式 endless
 - 解锁：任一局击败「深渊之眼」（`meta.victories > 0`）。角色选择屏的模式切换处显示锁与条件。
-- 9:00 击杀 boss_eye **不结算胜利**，而是进入下一循环（深度 +1）：
+- 9:00 击杀 boss_eye **不结算胜利**，而是进入下一循环：
   - `loopStart = time`，导演时间轴/相位表以 `time - loopStart` 重新查表（timelineIdx 归零，bossDone 复位）。
   - 敌人成长沿用绝对时间（enemyHpScale/enemyDmgScale 天然继续增长），另加循环乘数：`loopHpMul = 1.12^loop`，经验 `loopXpMul = 1 + 0.15*loop`（保证成长跟得上压力）。
   - 每循环末尾再次刷新 boss_eye（HP 用绝对时间 bossHpScale）。
-- 死亡结算：结果屏显示 **深度**（已清循环数）与时长；无胜利概念。
-- HUD 右上加深度计数；`RUN_HARD_CAP` 对无尽不生效。
+- 死亡结算：结果屏显示 **深度**（= 当前所处回廊序号 = 已清循环数 + 1，与 HUD 一致）与时长；无胜利概念。
+- HUD 顶栏显示深度计数；`RUN_HARD_CAP` 对无尽不生效。
 
 ### 每日挑战 daily
 - 种子：`fnv1a('abyssal-daily-' + YYYY-MM-DD)` → uint32。同一天所有玩家同一开局。
@@ -37,7 +37,7 @@
 - **武器 ×2**（含新被动 ×2，避免与既有 8 组进化被动冲突）：
   - `scythe 虚空收割`：朝向 120° 锥形挥砍（半径 95，强击退）。进化 `scythe_eclipse 蚀月`（被动 `aegis 回响护盾`）：360° 环斩 + 斩杀 12% 以下非 Boss。
   - `mines 星棘雷`：布设感应地雷（0.4s 布防，敌近 70px 或 6s 后爆，AoE 110px）。进化 `mines_bloom 星棘花海`（被动 `greed 贪婪协议`）：爆炸留下 2.5s 持续伤害区，双雷连布。
-  - 新被动：`aegis`（+2 护甲 +8% maxHp/级，max 3）、`greed`（+15% xpMul +10% luck/级，max 3）。被动栏位仍为 4。
+  - 新被动：`aegis`（+1.2 护甲 +10 maxHp/级）、`greed`（+15% xpMul +0.6 luck/级）。均为 5 级上限，与既有被动一致。被动栏位仍为 4。
 - **敌人**：`elite_echo 回响体`（behavior `dasher`：接近→0.8s 蓄力 telegraph→3.2x 速度突进 0.5s；死亡必掉星核拾取物）。加入标准 8:20 时间轴与无尽循环时间轴。
 - **图集/图标**：`pr_mine`、`pr_mine_bloom`、`enemy_elite_echo`、`weapon_scythe`、`weapon_scythe_eclipse`、`weapon_mines`、`weapon_mines_bloom`、新被动图标；FxKind 新增 `slash`（带角度的弧形斩击特效）。
 

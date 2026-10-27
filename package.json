@@ -1,7 +1,7 @@
 {
   "name": "abyssal-echo",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "《星渊回响》ABYSSAL ECHO — a survivors-like roguelite built with TypeScript + Canvas",
   "type": "module",
   "scripts": {
