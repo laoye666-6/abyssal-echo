@@ -255,7 +255,8 @@ export class GameApp {
     const summary = collectRunSummary(state);
     const earned = coresEarned(summary.kills, summary.elitesKilled, summary.bossesKilled, summary.time, victory);
     const mode = state.mode;
-    const depth = state.loop;
+    // 深度语义：当前所处回廊 = loop + 1（与 HUD 显示一致）
+    const depth = state.loop + 1;
 
     // 每日得分
     let score = 0;

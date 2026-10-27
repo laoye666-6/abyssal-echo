@@ -53,7 +53,7 @@ function mergeMeta(raw: unknown, base: MetaSnapshot): MetaSnapshot {
     }
     if (Array.isArray(r.unlocked)) {
       for (const c of r.unlocked) {
-        if (c === 'peregrine' || c === 'bastion' || c === 'astraeus') {
+        if (c === 'peregrine' || c === 'bastion' || c === 'astraeus' || c === 'vesper') {
           if (!out.unlocked.includes(c)) out.unlocked.push(c);
         }
       }

@@ -193,7 +193,8 @@ export function collectRunSummary(state: RunState) {
     characterId: state.characterId,
     evolutions: state.evolutions,
     mode: state.mode,
-    depth: state.loop,
+    /** 当前所处回廊深度 = loop + 1（与 HUD 一致） */
+    depth: state.loop + 1,
   };
 }
 
