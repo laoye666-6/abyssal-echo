@@ -17,7 +17,7 @@
 
 - **选择的代价可计算**：候选池按权重抽取（`src/game/upgrades.ts:55-72`）——新武器 10+luck、武器升级 9、新被动 8+luck×0.5、被动升级 9。玩家可以感知到"满级推进"比"开新坑"略优先，但幸运会轻微拉高新内容的出现率，形成"想开荒就点幸运"的隐性决策。
 - **栏位制造张力**：武器/被动各限 4 栏（`src/data/weapons.data.ts:36-37`）。8 选 4 的武器、8 选 4 的被动意味着每局必然放弃一半 arsenal——三选一不再是"全都要"的流水账，而是持续取舍。
-- **兜底不挫败**：候选不足 3 个时用"治疗"补位（回复量 15% + 每补一位 +5%，`src/game/upgrades.ts:89-91`），升级界面永远可选"跳过（回复 15% 生命）"（`src/ui/ui.ts:178-181`）。
+- **兜底不挫败**：候选不足 3 个时用"治疗"补位（固定回复 20% 最大生命，`src/game/upgrades.ts:99-101`），升级界面永远可选"跳过（回复 15% 生命）"（`src/ui/ui.ts:292-295`）。 <!-- v1.1 校对 -->
 - **进化必现**：满足进化条件时必占第一格（每帧最多提示一个，保持仪式感，`src/game/upgrades.ts:44-49`）。
 
 ### 1.3 为什么进化绑被动
@@ -61,14 +61,14 @@
 
 ```ts
 // src/game/balance.ts:14-16
-xpToNext(level) = round(5 + level*7 + level^1.6 * 1.6)
+xpToNext(level) = round(4 + level*5 + level^1.6 * 1.5) <!-- v1.1 校对 -->
 ```
 
 | 等级 | 1 | 5 | 10 | 20 | 30 |
 | --- | --- | --- | --- | --- | --- |
-| 升级所需 XP | 14 | 61 | 139 | 338 | 585 |
+| 升级所需 XP | 11 | 49 | 114 | 285 | 500 | <!-- v1.1 校对 -->
 
-线性项 `7×level` 保证前期每 10~20 秒一次升级（正反馈密）；`level^1.6` 项让后期升级间隔自然拉长，把决策重心从"频繁三选一"过渡到"波次与走位"。经验宝石基础值 = 敌人 xp 字段（1~120，见 `enemies.data.ts`），乘以 `stats.xpMul`。防挫败三件套（`src/game/sim.ts:197-237`）：
+线性项 `5×level` 保证前期每 10~20 秒一次升级（正反馈密）；`level^1.6` 项让后期升级间隔自然拉长，把决策重心从"频繁三选一"过渡到"波次与走位"。经验宝石基础值 = 敌人 xp 字段（1~120，见 `enemies.data.ts`），乘以 `stats.xpMul`。防挫败三件套（`src/game/sim.ts:197-237`）： <!-- v1.1 校对 -->
 
 - 3 倍拾取半径内宝石自动吸附（出生 0.25 秒后）；
 - 落地 15 秒后的宝石以最高 70px/s 向玩家漂移——远处击杀的经验不会永久滞留；
@@ -92,16 +92,16 @@ enemyDmgScale(t) = 1 + t/60 * 0.16
 - 接触伤害以 **0.3 秒窗口聚合**后一次性结算（护甲按窗口折算 ×0.3，附 0.12 秒无敌帧），防止贴脸每帧掉血刷屏（`src/game/sim.ts:83-104`）；弹丸类伤害独立结算，0.35 秒无敌帧（`src/game/combat.ts:243-256`）。
 - 护甲为**固定减伤**，下限 1（`balance.ts:28-30`）——对高频低伤的接触流收益极高，这正是 orbit/frost 玩家的成长通道。
 
-Boss 额外乘 **2.2**（`balance.ts:54-56`），且按生成时刻换算：泯灭者 4:00 登场约 2.3 万有效血（2600 × 4.01 × 2.2），深渊之眼 9:00 登场约 15 万（7800 × 10.5 × 2.2）。
+Boss 额外乘 **1.8**（`balance.ts:49-51`），且按生成时刻换算：泯灭者 4:00 登场约 1.6 万有效血（2200 × 4.01 × 1.8），深渊之眼 9:00 登场约 5.7 万（3000 × 10.5 × 1.8）。 <!-- v1.1 校对 -->
 
 ### 2.4 密度上限
 
 ```ts
-// src/game/balance.ts:43-45
-maxEnemiesAt(t) = round(clamp(90 + t*0.55, 90, 300))
+// src/game/balance.ts:38-40
+maxEnemiesAt(t) = round(clamp(90 + t*0.5, 90, 300)) <!-- v1.1 校对 -->
 ```
 
-约在 **6:58** 触顶 300。它是渲染性能与画面可读性的总闸，同时约束导演的 while 生成循环与 swarm 事件（swarm 允许超上限 40，`src/game/director.ts:104`）。
+约在 **7:00** 触顶 300。它是渲染性能与画面可读性的总闸，同时约束导演的 while 生成循环与 swarm 事件（swarm 允许超上限 40，`src/game/director.ts:111`）。 <!-- v1.1 校对 -->
 
 ### 2.5 星核经济（跨局货币）
 
@@ -122,7 +122,7 @@ coresEarned = floor(kills/45) + elites*3 + bosses*12 + floor(time/30) (+25 if vi
 
 ## 3. 武器设计表
 
-全部行为实现位于 `src/game/weapons/`；等级系数 `levelMul(lv, per) = 1 + per*(lv-1)`（`helpers.ts:65-67`）。下表"满级"指 5 级数值，含全局 `stats.damageMul` 之前的基础值。8 把武器刻意覆盖四种"索敌方式 × 伤害形状"，保证任意 4 栏组合都有输出重叠区。
+全部行为实现位于 `src/game/weapons/`；等级系数 `levelMul(lv, per) = 1 + per*(lv-1)`（`helpers.ts:63-65`）。下表"满级"指 5 级数值，含全局 `stats.damageMul` 之前的基础值。8 把武器刻意覆盖四种"索敌方式 × 伤害形状"，保证任意 4 栏组合都有输出重叠区。 <!-- v1.1 校对 -->
 
 | 武器 | 冷却（1→5 级） | 伤害（1 级→满级） | 形状与手感 | 关键参数 | 进化后（按 5 级系数结算） |
 | --- | --- | --- | --- | --- | --- |
@@ -197,7 +197,7 @@ coresEarned = floor(kills/45) + elites*3 + bosses*12 + floor(time/30) (+25 if vi
 
 注意两个刻意设计：**相位 5 起点回落**（4.2→2.4），给泯灭者 Boss 战腾出可读空间；尘埃权重逐相位衰减（90→0），后期"低价值杂鱼"退场，场上都是有效威胁。音乐强度驱动自适应配乐的分层渐入（>0.35 琶音层、>0.7 打击层，`src/audio/music.ts:227-241`）。
 
-### 5.2 时间轴事件表（`TIMELINE`，20 条）
+### 5.2 时间轴事件表（`TIMELINE`，22 条） <!-- v1.1 校对 -->
 
 | 时间 | 事件 | 内容 |
 | --- | --- | --- |
@@ -220,6 +220,7 @@ coresEarned = floor(kills/45) + elites*3 + bosses*12 + floor(time/30) (+25 if vi
 | 7:20 | pickupDrop | 治疗补给 |
 | 7:30 | elite | 母巢精英 |
 | 7:50 | elite | 疾影精英 |
+| 8:20 | elite | 回响体 elite_echo（v1.1：蓄力突进，必掉星核） |
 | 8:40 | warning | "最终回响已到来" |
 | **9:00** | **boss** | **深渊之眼**（击杀即胜） |
 
@@ -234,11 +235,11 @@ coresEarned = floor(kills/45) + elites*3 + bosses*12 + floor(time/30) (+25 if vi
 | 想调什么 | 改哪里 | 预期影响 |
 | --- | --- | --- |
 | 一局总长 / 超时 | `src/game/balance.ts:9-11` `RUN_GOAL_TIME`(540) / `RUN_HARD_CAP(780s)`(780) | 同时要改 `waves.data.ts` 最后两条 timeline 的 Boss 时间，否则 9:00 不出最终 Boss |
-| 升级节奏 | `balance.ts:14-16` `xpToNext` 线性项 7 / 幂项 1.6、1.6 | 线性项↑=前期升级更密；幂项↑=后期断崖更陡 |
+| 升级节奏 | `balance.ts:14-16` `xpToNext` 线性项 5 / 幂项 1.6、1.5 | 线性项↑=前期升级更密；幂项↑=后期断崖更陡 | <!-- v1.1 校对 -->
 | 敌人强度成长 | `balance.ts:19-25` 指数 1.42 / 系数 0.42 / 伤害 0.16 | 0.42↑=后期血墙更硬；1.42 降为 1.0 即变线性成长 |
-| 同屏密度 | `balance.ts:43-45` `maxEnemiesAt`（90 基数 / 0.55 斜率 / 300 上限） | 直接影响同屏敌人上限与性能压力；300 是性能保险丝，勿轻易上调 |
+| 同屏密度 | `balance.ts:38-40` `maxEnemiesAt`（90 基数 / 0.5 斜率 / 300 上限） | 直接影响同屏敌人上限与性能压力；300 是性能保险丝，勿轻易上调 | <!-- v1.1 校对 -->
 | 星核产出 | `balance.ts:48-51` `coresEarned`（/45、×3、×12、/30、+25） | 全局经济膨胀/紧缩的总阀门；局内掉落另改 `combat.ts:180,184` 与 `sim.ts:258` |
-| Boss 血量 | `balance.ts:54-56` `bossHpScale` 乘数 2.2 | 只影响 Boss 相对普通敌人的倍率；基础值在 `enemies.data.ts:84-95` |
+| Boss 血量 | `balance.ts:49-51` `bossHpScale` 乘数 1.8 | 只影响 Boss 相对普通敌人的倍率；基础值在 `enemies.data.ts:92-103` | <!-- v1.1 校对 -->
 | 生成节奏 | `src/data/waves.data.ts` 各相位 `startRate/endRate` | 每相位内的线性爬升；相位 5 起点回落是 Boss 战的可读性设计，动前想清楚 |
 | 敌人构成 | `waves.data.ts` 各相位 `pool` 权重 | 权重是相对值；新敌人加入池即可投入战斗 |
 | 事件节拍 | `waves.data.ts` `TIMELINE` 的 `at` 字段 | 精英/Boss/虫潮/补给的时刻表；warning 条目要提前 ~15s 放 |
@@ -254,3 +255,172 @@ coresEarned = floor(kills/45) + elites*3 + bosses*12 + floor(time/30) (+25 if vi
 | 升级池权重 | `src/game/upgrades.ts:55-72` | 新武器 10+/武器升级 9/新被动 8+/被动升级 9；luck 加成也在这 |
 
 **调参工作流建议**：改 `data/` → `npm test`（曲线单调性/池边界）→ `npm run dev` 用 `?seed=`（尚未接线）或反复开局观察 → 数值确认后 `npm test` + `npm run lint` 再提交。波次/成长类改动优先跑一局到 4:00 看 Boss I 是否"打得动、打不死人"。
+
+---
+
+## 7. v1.1 附录：运行模式、新内容与成就
+
+> 本节覆盖 v1.1 新增的三种运行模式、两把武器、两条被动、一名角色与成就系统。所有数值从当前代码提取，行号以 v1.1 代码为准。
+
+### 7.1 运行模式（standard / endless / daily）
+
+模式枚举 `RunMode = 'standard' | 'endless' | 'daily'`（`src/game/types.ts:412`），经 `RunConfig.mode / dailyDate` 注入（`types.ts:406-408`）。RunState 新增字段：`mode / loop / loopStart / evolutions / dailyDate / dailyModifier / enemySpeedMul / enemyHpMul / bossHpMul`（`types.ts:426-439`），默认值 `mode='standard'`、`loop=0`、`loopStart=0`、三个生成乘数 =1（`src/game/state.ts:33-41`）。
+
+#### 7.1.1 无尽模式（endless）
+
+- **解锁**：`endlessUnlocked = meta.victories > 0`（`src/ui/ui.ts:232`），未解锁时按钮 disabled（`ui.ts:241`）——至少赢一局标准/每日模式。
+- **循环时间轴重放**：导演以循环相对时间驱动，`t = state.time - state.loopStart`（仅 endless，`src/game/director.ts:30`）。相位推进（`director.ts:33-46`）、密度上限 `maxEnemiesAt(t)`（`director.ts:53`）、时间轴事件游标（`director.ts:85`）全部使用该 t——每层循环从相位 1 与完整时间轴重新开始，包括 4:00 泯灭者与 9:00 深渊之眼；密度曲线随之回到起点。Boss 存活压制（×0.35）与 leash 拉回机制跨循环不变（`director.ts:51`、`140-156`）。
+- **循环推进点**：只有击杀深渊之眼（boss_eye）才推进。mode='endless' 时：`loop++`、`loopStart = state.time`、`timelineIdx = 0`、`phaseIndex = 0`、`bossDone = false`，横幅 `warning.endless` 持续 3.2s + evolve 音效（`src/game/combat.ts:196-205`）；否则结算胜利（`combat.ts:206-208`）。泯灭者击杀在无尽中只走普通 Boss 结算（`combat.ts:188-195`），不推进循环。
+- **敌人血量**：`loopHpMul(loop) = 1.12^loop`（`src/game/balance.ts:56-58`），生成侧叠加且**只作用于非 Boss**（`combat.ts:87`），完整公式 `hp = def.hp × enemyHpScale(state.time) × hpMul × state.enemyHpMul × loopMul`（`combat.ts:88`）。两个刻意的"不重置"：`enemyHpScale` 仍按**绝对时间**成长（跨循环累加，超线性不回头）；Boss 按 `bossHpScale(state.time)` 生成（`director.ts:104`）且不吃循环乘数——无尽越深，Boss 相对越"便宜"，杂兵相对越"硬"。
+- **敌人伤害**：`contactDps × enemyDmgScale(state.time)`（`combat.ts:98`）——同样按绝对时间，接触压力逐层上升。
+- **经验补偿**：`loopXpMul(loop) = 1 + 0.15 × loop`（`balance.ts:61-63`），作用点在击杀掉落的宝石：`e.xp × loopXpMul`（`combat.ts:177`）。
+- **无硬上限**：超时判负仅在非 endless 生效——`state.mode !== 'endless' && state.time > RUN_HARD_CAP`（`src/game/sim.ts:265-268`；RUN_HARD_CAP=780，`balance.ts:11`）。
+- **深度语义**：深度 = `loop + 1`（"当前所处回廊"），结算（`src/app.ts:258-259`）、摘要（`src/game/upgrades.ts:196-197`）与 HUD（`app.ts:388`，`深度 N · 倒计时`）三处一致；成就判定同样按该语义（见 7.3 的 depth_2/depth_5）。
+
+#### 7.1.2 每日挑战（daily）
+
+- **种子**：`dailySeed(date) = fnv1a('abyssal-daily-' + date)`（`balance.ts:78-80`），fnv1a 为 FNV-1a 32 位哈希（`balance.ts:68-75`）。同一天恒定，可跨设备对比。
+- **角色轮换**：`dailyCharacter(date, roster) = fnv1a('abyssal-daily-char-' + date) % roster.length`（`balance.ts:83-86`）；名单固定 4 人且**不受解锁限制**（`src/data/daily.data.ts:5`、`app.ts:27`）——每日即试用日。
+- **修正器抽取**：`dailyModifierFor(date) = DAILY_MODIFIERS[dailySeed(date) % 6]`（`daily.data.ts:63-66`）。
+- **开局管道**：seed 取 dailySeed（`app.ts:148`）、角色取轮换（`app.ts:149-151`）、makeRunState 注入 mode/dailyDate（`app.ts:152-158`）、push 初始武器之后 `mod.apply(state)`（`app.ts:159-164`）——修正器直接改写 state（stats / 生成乘数 / 初始武器等级），非 Stats 声明式覆盖。
+- **计分**：`dailyScore = kills + floor(survivedSec)×2 + level×20 + (victory ? 500 : 0)`（`balance.ts:89-91`）。每日模式沿用标准局结构（9:00 终局 Boss、780s 超时判负，`sim.ts:266` 只豁免 endless）。
+- **当日最佳**：`meta.dailyBest = { date, score }`（`types.ts:526`）；date 不同直接覆盖、同 date 取更高分（`app.ts:268-274`），`state.dailyDate ?? todayStr()` 为基准（`app.ts:266`）。
+- **日期边界**：`todayStr()` 取本地时区 YYYY-MM-DD（`balance.ts:94-99`）——每日翻转跟随本地时钟而非 UTC。
+
+**6 修正器**（`daily.data.ts:11-60`；中文描述 `src/core/i18n.ts:226-231`）：
+
+| id | 效果（代码值） | 行号 |
+| --- | --- | --- |
+| swift_swarm 疾风群 | 敌速 ×1.15，经验 ×1.2 | daily.data.ts:16-17 |
+| magnet_storm 磁暴 | 拾取半径 ×2 | daily.data.ts:24 |
+| frail_giants 脆巨兽 | Boss 生命 ×0.7 | daily.data.ts:31 |
+| thick_hide 厚甲 | 敌人生命 ×1.2，玩家伤害 ×1.15 | daily.data.ts:38-39 |
+| head_start 先发 | 初始武器直接 ≥2 级 | daily.data.ts:48 |
+| glass_cannon 玻璃炮 | 暴击 +10%（钳 0.95 上限），最大生命 ×0.85（下限 40）并同步当前 hp | daily.data.ts:55-57 |
+
+### 7.2 v1.1 新内容数值表
+
+数值口径沿用第 3 节：基础值（未乘全局 `stats.damageMul`），等级系数 `levelMul(lv, per) = 1 + per×(lv-1)`（`src/game/weapons/helpers.ts:63-65`）。数据绑定：scythe→aegis→scythe_eclipse、mines→greed→mines_bloom（`src/data/weapons.data.ts:19-20`），两者进入 BASE_WEAPONS 抽取池（`weapons.data.ts:35-38`）。
+
+**虚空收割 scythe**（`src/game/weapons/scythe.ts`）——朝向锥形挥砍，无弹道直接结算：
+
+| 参数 | 数值 | 行号 |
+| --- | --- | --- |
+| 冷却 | `1.7 − 0.12×(lv−1)` → 1.7 / 1.58 / 1.46 / 1.34 / 1.22s | scythe.ts:18-20 |
+| 伤害 | 16 × levelMul(lv, 0.18) → 5 级 16×1.72 ≈ 27.5 | scythe.ts:26 |
+| 半径 | `95 + 6×lv`（95→119）× areaMul | scythe.ts:24 |
+| 形状 | 朝向锥形 120°（arc = 2π/3），角平分线 = player.facing | scythe.ts:25,31,39 |
+| 击退 | 170 | scythe.ts:27 |
+| 表现 | `slash` fx（弧线起止角写入 points）+ 低音 shoot | scythe.ts:48-56；FxKind 见 types.ts:326 |
+
+**进化·蚀月 scythe_eclipse**（按 5 级系数结算，`scythe.ts:22-23`）：
+
+| 参数 | 数值 | 行号 |
+| --- | --- | --- |
+| 半径 | 150 × areaMul | scythe.ts:24 |
+| 形状 | 360° 环斩（arc = 2π） | scythe.ts:25 |
+| 伤害 | 30 × levelMul(5, 0.18) = 51.6 | scythe.ts:26 |
+| 击退 | 240 | scythe.ts:27 |
+| 斩杀线 | 12%：非 Boss 且 `hp < maxHp×0.12` 直接 9999 伤害 | scythe.ts:28,41-44 |
+
+**星棘雷 mines**（`src/game/weapons/mines.ts`）——周期布设感应地雷。常量：布防 0.4s、感应距离 70、雷寿命 6s、伤害区寿命 2.5s、伤害区跳伤间隔 0.5s（`mines.ts:13-17`）：
+
+| 参数 | 数值 | 行号 |
+| --- | --- | --- |
+| 冷却 | `max(1.1, 2.4 − 0.14×(lv−1))` → 2.4 / 2.26 / 2.12 / 1.98 / 1.84s | mines.ts:84-86 |
+| 单次布设数 | 1（4 级起 2）→ 进化恒 2 | mines.ts:94 |
+| 单雷伤害 | 15 × levelMul(lv, 0.17) → 5 级 15×1.68 = 25.2 | mines.ts:19-23 |
+| 布设位置 | 玩家周身 10~55 × areaMul 随机角 | mines.ts:28-32 |
+| 地雷本体 | r = 7×areaMul；布防 0.4s 后感应（半径 70×areaMul）或 6s 寿命耗尽即起爆 | mines.ts:36,44,125-141 |
+| 起爆 AoE | 半径 105×areaMul，击退 110 | mines.ts:78-79 |
+
+**进化·星棘花海 mines_bloom**（5 级系数，`mines.ts:20-22`）：
+
+| 参数 | 数值 | 行号 |
+| --- | --- | --- |
+| 单雷伤害 | 26 × 1.68 ≈ 43.7 | mines.ts:22 |
+| 布设 | 双雷连布 | mines.ts:94 |
+| 起爆 AoE | 半径 125×areaMul，击退 110 | mines.ts:78-79 |
+| 持续伤害区 | 半径 = 起爆半径 × 0.85；寿命 2.5s；每 0.5s 一跳，每跳 = 单雷伤害 × 0.35（无击退、不触发白闪） | mines.ts:80,58,113,117 |
+
+**新被动**（`src/data/passives.data.ts`，均为乘算/加算纯函数）：
+
+| 被动 | 每级 | 5 级累计 | 行号 |
+| --- | --- | --- | --- |
+| aegis 回响护盾 | 护甲 +1.2，最大生命 +10 | 护甲 +6 / 生命 +50 | passives.data.ts:46-50 |
+| greed 贪婪协议 | 经验 ×(1+0.15lv)，幸运 +0.6 | 经验 ×1.75 / 幸运 +3 | passives.data.ts:51-55 |
+
+**新角色 vesper 织夜者**（`src/data/characters.data.ts:19-23`）：生命 90、冷却 ×0.92、移速 210（绝对覆盖，`state.ts:17-19`），初始武器 scythe。解锁条件：单局完成 ≥1 次进化（`app.ts:305`）。
+
+**新敌人 elite_echo 回响体**（`src/data/enemies.data.ts:83-89`）：
+
+- 面板：hp 640 · speed 70 · contactDps 26 · radius 22 · xp 45 · knockbackResist 0.55 · tier=elite · weight=0（仅时间轴投放，`src/data/waves.data.ts:37`，8:20 登场，无前置 warning 条目）。xp 45 为当前精英最高（对照 `enemies.data.ts:71,77`）。
+- 行为 **dasher**（v1.1 新行为枚举 `types.ts:154`；实现 `src/game/enemies/index.ts:138-182`）三阶段：
+  1. 常规接近：dt×6 平滑转向（`enemies/index.ts:174-181`）；
+  2. 蓄力：`phase` 归零后急停（速度按 `0.0005^dt` 衰减，`155-156`），持续 0.8s，期间以 dt×8 概率闪 telegraph 特效（r×2.2，`157-159`）；
+  3. 突进：锁定蓄力结束瞬间玩家方向（`160-167`），速度 ×3.2 持续 0.5s（每帧重写速度绕过击退阻尼，`142-150`），随后进入 3.2s 冷却（`167`）；起跳音效 warning v=0.5 p=1.6（`168`）。
+- 行为参数全部读自 `def.params`：`{dashCd: 3.2, telegraph: 0.8, dashMul: 3.2, dashTime: 0.5}`（`enemies.data.ts:88`；dasher 是真实读取 params 的行为，区别于第 4 节所述 v1.0 遗留的硬编码行为）。
+- 击杀奖励：精英常规 +2 星核（`combat.ts:180`）+ **必掉星核拾取物**（+5，`combat.ts:182-184`；其他精英是 35% 掉治疗，`combat.ts:185-187`）。
+
+### 7.3 成就清单（20 项）
+
+判定分三通道（`src/game/achievements.ts`）：
+
+- **live**：局内每秒节流判定（`app.ts:204-209`，节流计时器 `app.ts:73`），达成即时 toast；
+- **afterRun**：finishRun 结算时扫描（`app.ts:308`）；
+- **meta**：`evaluateMeta` 以全零 RunSummaryLite 复用 afterRun 谓词（`achievements.ts:163-168`），在星核商店购买后调用（`app.ts:434-436`）——只有只读 meta 参数的判定会在该通道解锁。
+
+中文名出自 i18n `achv.<id>.name`（`src/core/i18n.ts:241-280`）。
+
+| # | id | 中文名 | 触发条件 | 通道 | 定义 |
+| --- | --- | --- | --- | --- | --- |
+| 1 | first_echo | 初次回响 | 完成 1 局（meta.runs ≥1） | afterRun | achievements.ts:38-42 |
+| 2 | century | 百人斩 | 单局击杀 ≥100 | live + afterRun | achievements.ts:43-48 |
+| 3 | legion | 千军破 | 单局击杀 ≥500 | live + afterRun | achievements.ts:49-54 |
+| 4 | five_min | 五分钟灯塔 | 单局存活 ≥300s | live + afterRun | achievements.ts:55-60 |
+| 5 | devourer_slayer | 弑渊者·序 | 单局击杀任意 Boss ≥1 | afterRun | achievements.ts:61-64 |
+| 6 | eye_slayer | 弑渊者 | 单局胜利（击败深渊之眼） | afterRun | achievements.ts:65-68 |
+| 7 | first_evolution | 进化论 | 单局进化 ≥1 | afterRun | achievements.ts:69-72 |
+| 8 | triple_evolution | 三重回响 | 单局进化 ≥3 | live + afterRun | achievements.ts:73-77 |
+| 9 | flawless | 无瑕回响 | 存活满 300s 且累计受伤为 0（达成瞬间解锁） | live | achievements.ts:78-81 |
+| 10 | maxed_weapon | 圆满 | 任一武器等级达其 maxLevel（进化形态 maxLevel=1 亦算） | live | achievements.ts:82-85 |
+| 11 | elite_hunter | 精英猎人 | 单局击杀精英 ≥10 | live + afterRun | achievements.ts:86-90 |
+| 12 | core_mogul | 星核富豪 | 生涯累计获得 ≥1000 星核 | afterRun + meta | achievements.ts:91-95 |
+| 13 | veteran | 深渊老兵 | 生涯完成 ≥25 局 | afterRun + meta | achievements.ts:96-100 |
+| 14 | daily_omen | 每日回响 | 完成一局每日挑战 | afterRun | achievements.ts:101-104 |
+| 15 | depth_2 | 回廊行者 | 无尽到达深度 2（live: `loop≥1`；afterRun: `depth≥2`） | live + afterRun | achievements.ts:105-109 |
+| 16 | depth_5 | 深渊泳者 | 无尽到达深度 5（live: `loop≥4`；afterRun: `depth≥5`） | live + afterRun | achievements.ts:110-114 |
+| 17 | full_arsenal | 满载而归 | 单局持有 4 把武器 | live + afterRun | achievements.ts:115-119 |
+| 18 | forge_master | 锻造大师 | 任一星核强化线升满（读 META_NODES） | afterRun + meta | achievements.ts:120-123 |
+| 19 | trifecta | 三面守望 | 3 名不同角色各取得 ≥1 次胜利（meta.charWins） | afterRun + meta | achievements.ts:124-127 |
+| 20 | core_harvest | 星核丰收 | 单局局内星核入账 ≥15（精英/Boss/金色核心即时入账之和） | afterRun | achievements.ts:128-131 |
+
+其中 6 项有进度条定义（first_echo / century / legion / five_min / core_mogul / veteran），经 `achievementProgress` 输出 `[当前, 目标]`（`achievements.ts:171-173`）。
+
+**角色解锁条件总表**（判定集中在 `app.ts:303-305`，写入 `meta.unlocked` 并 toast，`app.ts:296-302`）：
+
+| 角色 | 条件 | 依据 |
+| --- | --- | --- |
+| peregrine | 默认解锁（新档初始项） | `src/core/save.ts:22` |
+| bastion | 生涯单局存活 ≥240s（`meta.bestTime ≥ 240`） | app.ts:303 |
+| astraeus | 单局击杀任意 Boss ≥1 | app.ts:304 |
+| vesper | 单局完成 ≥1 次进化 | app.ts:305 |
+
+### 7.4 调参表（v1.1 增补）
+
+原则同第 6 节：只改 `src/game/balance.ts` 与 `src/data/*`。
+
+| 想调什么 | 改哪里 | 注意 |
+| --- | --- | --- |
+| 无尽敌人血量 | `src/game/balance.ts:56-58` `loopHpMul` 底数 1.12 | 只作用于非 Boss（`combat.ts:87`）；绝对时间成长照常叠加，两层压力独立 |
+| 无尽经验补偿 | `balance.ts:61-63` `loopXpMul` 系数 0.15 | 生效点 `combat.ts:177`（宝石值）；建议与底数联动调整保持成长/压力比 |
+| 循环切换规则 | `src/game/combat.ts:196-205` | 只由 boss_eye 击杀触发；重置 timelineIdx/phaseIndex 即"时间轴重放" |
+| 无尽是否封顶 | `src/game/sim.ts:265-268` 的 `mode !== 'endless'` 排除项 | 恢复硬上限即删掉该排除；RUN_HARD_CAP 在 `balance.ts:11` |
+| 循环重放基准 | `src/game/director.ts:30` | 改回绝对时间 = 取消循环重放（同时影响密度上限计算，`director.ts:53`） |
+| 每日修正器池 | `src/data/daily.data.ts:11-60` `DAILY_MODIFIERS` | 新条目自动进入抽取池（`63-66` 取模），须同步加 i18n `daily.mod.<id>`（现有 6 条见 `i18n.ts:226-231`） |
+| 每日计分 | `src/game/balance.ts:89-91` `dailyScore` | 改公式会使 dailyBest 历史分数不可比 |
+| 每日种子/轮换盐 | `balance.ts:79,84` 的字符串常量 | 改动等同"全员换日" |
+| elite_echo 数值 | `src/data/enemies.data.ts:83-89`（含 params 四项） | dasher 真实读取 params（`enemies/index.ts:145,153,160,166-167`），改了即生效 |
+| elite_echo 投放时刻 | `src/data/waves.data.ts:37` | 当前无前置 warning，需要预告自行插入（提前 ~15s，同第 6 节惯例） |
+| 成就阈值 | `src/game/achievements.ts:37-132` 各条目谓词 | 阈值内联在谓词中（100/500/300s/240s/1000/25/15 等）；改后跑 `tests/achievements.spec.ts` 与 `tests/modes.spec.ts` |
+| 解锁门槛 | 角色 `app.ts:303-305`；无尽 `src/ui/ui.ts:232` | victories > 0 是无尽唯一门槛 |

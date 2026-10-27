@@ -175,14 +175,14 @@ drainEvents(state)（app.ts:285，state.ts:98-102）——三队列清空，一�
 
 ### 限制（现状如此，勿当成 bug 踩坑）
 
-1. **触控/手柄未实现**：`Input` 只有键盘映射（`core/input.ts`）；`index.html` 有移动端 viewport meta 但没有任何 pointer/touch 处理。想做触控需新增虚拟摇杆并汇入 `SimControl`。
+1. **触控已实现（v1.1），手柄仍未实现**：触屏虚拟摇杆 `src/ui/touch.ts` 汇入 `SimControl`（`main.ts:16-23`），移动端加固（横屏提示/禁长按菜单）在 `src/ui/mobile.ts`（`main.ts:25`）；手柄映射仍缺失。 <!-- v1.1 校对 -->
 2. **`?seed=` 未接线**：`main.ts:16-17` 解析了 URL 参数但丢弃（`void new URLSearchParams(...)`）。接线点：`app.startRun()` 的 `seed = Math.random()*0xffffffff`（`app.ts:117`）改为读取该参数即可获得可分享种子。
 3. **行为枚举有幽灵项**：`EnemyBehaviorId` 声明了 `'charger'` 与 `'orbiter'`（`types.ts:143-146`），但 `enemies/index.ts` 的行为表只实现 6 种，也没有敌人引用它们。
 4. **敌人 `params` 字段未被执行读取**：`enemies.data.ts` 里 stinger 的 weaveAmp/weaveFreq、warden 的 keepDist/fireCd/bulletSpeed/bulletDmg、shardling 的 childId 都是文档性数据，行为代码里是同值的硬编码常量（`enemies/index.ts:34-35,81,102-111`；分裂子体硬编码 `'mote'`，`combat.ts:208`）。调这些 params 不会生效，需先改为读取 `def.params`。
 5. **死代码**：`balance.weaponDamage`（`balance.ts:38-40`）、`weapons/helpers.hpScaleRef` 与 `assertWeapon`（`helpers.ts:70-77`）导出但无调用方；`renderer.drawFxScreen` 是空实现（`renderer.ts:544-546`）。
 6. **进化武器图标是占位映射**：`ui.weaponIconKey`（`ui.ts:72-83`）把 arc/lance/frost 等映射到已有投射物精灵（如 arc→pr_orbit），图标不精确。
 7. **存档版本迁移是空壳**：版本不匹配直接回落默认档（`save.ts:88-91`），未来改档结构时必须补真实迁移，否则用户进度清零。
-8. **后台继续模拟**：看门狗保证 rAF 挂起时模拟不中断（`clock.ts:35-53`）——这是特性也是限制：切走标签页不会自动暂停，玩家可能回来看见自己死了。自动暂停的挂点是 `document.visibilitychange`（当前未监听）。
+8. **后台继续模拟**：看门狗保证 rAF 挂起时模拟不中断（`clock.ts:35-53`）。v1.1 起窗口失焦自动暂停对局（`window` blur → `app.pause()`，`app.ts:94-97`）；`document.visibilitychange` 本身仍未监听，无失焦信号的隐藏场景仍会继续模拟。 <!-- v1.1 校对 -->
 9. **伤害数字池覆盖策略**：`Renderer.pushDamage` 池满时覆盖第 0 槽（`renderer.ts:558`），极端瞬间可能吞数字，属于接受的降级。
 10. **`sim.spec.ts` 中注释 `xpToNext(1)=15` 不准确**（实际 14，`balance.ts:15`），仅注释笔误，断言未受影响。
 
@@ -195,3 +195,121 @@ drainEvents(state)（app.ts:285，state.ts:98-102）——三队列清空，一�
 5. **网络/镜像对战**：`RunState` 可整体序列化（Pool 是纯数据），事件流是现成的"表现差异包"。
 6. **新 Boss**：`boss.ts` 加状态机 + `enemies.data.ts` 条目（behavior 任意，`bossUpdate` 按 kind 分派）+ timeline 加 `{type:'boss'}`。
 7. **音频新配方**：`sfx.ts` 加配方 + `SfxName`（`types.ts:327-329`）加枚举 + 分发 switch 加一行。
+
+---
+
+## 12. v1.1 附录：模式管道、成就系统、存档 v2 与调试钩子
+
+### 12.1 新模块一览与依赖方向
+
+v1.1 新增/显著改动的模块：
+
+| 模块 | 职责 |
+| --- | --- |
+| `src/game/achievements.ts` | 成就定义表 + 三通道判定（纯函数，无 DOM/Audio） |
+| `src/data/daily.data.ts` | 每日修正器池与抽取函数 |
+| `src/game/weapons/scythe.ts` / `mines.ts` | 新武器行为（注册于 `weapons/index.ts:23-24,33-34`） |
+| `src/game/enemies/index.ts` 的 `dasher` | elite_echo 行为（`enemies/index.ts:138-182`） |
+| `src/ui/touch.ts` / `src/ui/mobile.ts` | 触屏控制与移动端加固（`src/main.ts:16-25`） |
+
+依赖方向的两处新增约定（红线）：
+
+1. **achievements.ts（game/）→ data/meta.data + data/weapons.data**（`achievements.ts:9-10`）。game→data 本就是允许方向，但成就模块把这两张表的**形状**变成了自己的契约：`maxed_weapon` 读 `WEAPON_DATA[w.id]?.maxLevel`（`achievements.ts:84`，带 `?? 99` 兜底）、`forge_master` 遍历 `META_NODES` 的 id/maxRank（`achievements.ts:122`）。重构这两张表（改名/改字段/改 maxRank 语义）必须同步过一遍成就谓词，否则编译报错或静默失效。
+2. **daily.data.ts（data/）→ game/balance**（`daily.data.ts:2`，`dailySeed`）。这是 data/ 首次依赖 game/ 的**函数**（此前仅 types.ts 的类型）。balance 全部纯函数无状态，方向上可接受；反向（balance import data/）仍禁止。
+
+另一处结构性注意点：`evaluateMeta` 以全零 `RunSummaryLite` 复用 afterRun 谓词（`achievements.ts:163-168`）——任何读 `r.*` 的 afterRun 成就在 meta 通道恒为 false。**新成就若想被"购买星核强化"触发，谓词必须只读 meta 参数**（现有消费方：core_mogul / veteran / forge_master / trifecta）。
+
+### 12.2 模式管道（standard / endless / daily）
+
+```
+RunConfig.mode（'standard'|'endless'|'daily'，types.ts:406,412）
+  → app.startRun(mode)（app.ts:145-173）
+      daily：seed = dailySeed(date)（app.ts:148）、角色 = dailyCharacter（149-151）、
+             makeRunState 注入 mode/dailyDate（152-158）、push 初始武器后 mod.apply(state)（159-164）
+  → makeRunState（state.ts:33-41：mode、loop=0、loopStart=0、enemySpeedMul/enemyHpMul/bossHpMul=1）
+  → stepSim
+      director：endless 下 t = time − loopStart（director.ts:30），相位/密度/时间轴按循环重放
+      combat.spawnEnemy：速度乘 enemySpeedMul（combat.ts:97）；
+                         血量 = enemyHpScale(time) × hpMul × enemyHpMul × loopHpMul(loop)（87-88，Boss 例外走 bossHpMul）
+      combat.killEnemy：boss_eye 分支——endless 进下一循环（loop++ / loopStart=time / timelineIdx、phaseIndex 归零，
+                        combat.ts:196-205），否则置 victory（206-208）
+      sim：超时判负跳过 endless（sim.ts:265-268）
+  → app.finishRun（app.ts:252-332）
+      depth = loop + 1（app.ts:259；upgrades.collectRunSummary 同语义，upgrades.ts:196-197）
+      daily：dailyScore → meta.dailyBest 覆盖/取优（app.ts:261-275）
+      meta 写回：endlessBestDepth / charWins / bestiary / totalPlaySeconds 等（app.ts:277-295）
+```
+
+表现层一致性：HUD 相位标签同样以循环相对时间倒计时（`app.ts:384,388`，i18n key `hud.depth`，`i18n.ts:233`）。
+
+### 12.3 成就系统：三通道数据流
+
+```
+live      app.step 每 1s 节流（achvT，app.ts:73,204-209）
+          → evaluateLive(state, meta)（achievements.ts:135-146）
+afterRun  finishRun：先补一次 evaluateLive 覆盖边界（app.ts:307）
+          → evaluateAfterRun(summary, meta)（achievements.ts:149-160，调用点 app.ts:308）
+meta      星核商店购买后 → checkMetaAchievements（app.ts:434-436）
+          → evaluateMeta（全零 summary，只读 meta 参数可解锁，achievements.ts:163-168）
+        ↓ 三通道汇合
+unlockAchievements(ids, silentSfx)（app.ts:417-431）
+  幂等：meta.achievements[id] 已置位即跳过（app.ts:422；achievements.ts:138）
+  写 meta.achievements[id] = 1（app.ts:423）→ ui.toast（app.ts:425，toast 层 3.2s 自动消失）
+  → persistSave（app.ts:428）→ levelup 音效 v=0.7 p=1.3（app.ts:429；afterRun 传 silentSfx=true 不播）
+```
+
+面板入口：AppMode 增加 `'achievements'`（`app.ts:24`）；进度条 `achievementProgress`（`achievements.ts:171-173`）。测试：`tests/achievements.spec.ts`（10 用例，锁死三通道与 depth=loop+1 语义）、`tests/modes.spec.ts`（7 用例）、`tests/weapons.spec.ts`（9 用例）、`tests/save.spec.ts` 增补 v1→v2 迁移用例（`save.spec.ts:124`）。
+
+### 12.4 存档 v2（`src/core/save.ts`）
+
+- `SAVE_VERSION = 2`（`save.ts:4`）；localStorage 键名仍是 `'abyssal-echo.save.v1'`（`save.ts:3`）——键名未随版本升级，版本号在 payload 内。
+- **新增字段清单**（全部可选，缺省回落 defaultMeta/defaultSettings 底座，`save.ts:28-35`）：
+  - `settings.reducedFlash`（`types.ts:538`；解析校验 `save.ts:108`）
+  - `meta.achievements`（`types.ts:516`）
+  - `meta.totalCoresEarned / bestKills / bestLevel / totalPlaySeconds / endlessBestDepth`（`types.ts:518-524`）
+  - `meta.dailyBest = { date, score }`（`types.ts:526`）
+  - `meta.charWins`（`types.ts:528`）
+- **迁移策略**（`save.ts:99-100`）：
+
+  ```
+  version === 1 或 === SAVE_VERSION(2) → 同一条解析路径（v1/v2 字段结构兼容，v2 只是新增字段，
+                                        缺失项由 mergeMeta 逐字段校验补齐，save.ts:66-86）
+  其他（未来版本）                    → migrate()（save.ts:121-128）：仅 old.version===1 时保留 meta
+                                        （经 mergeMeta 防御合并），否则整体回落默认档
+  ```
+
+  即 v1 档无损升级（`tests/save.spec.ts:124` 锁死）；v3+ 档按回落默认档处理——与 v1.0 的"版本不匹配清档"语义一致，只是 v1 被显式豁免。ARCHITECTURE §8/§11 所述"迁移是空壳"的现状至此被真实迁移取代。
+- **mergeMeta v1.1 扩展**（`save.ts:66-86`）：`achievements` 仅收录值为 1 的键（`68-70`）；`dailyBest` 逐字段校验（`77-81`）；`charWins` 逐键钳非负整数（`82-86`）；其余数值字段统一钳 0（`72-76`）。
+
+### 12.5 新武器实现模式
+
+v1.1 两把武器示范了两种不新增池子/弹种的实现套路：
+
+**scythe：无弹道直接结算。** `fire` 内直接遍历 `state.enemies` 做扇形判定——距离 + `angleDiff` 半角校验（`scythe.ts:6-11,33-39`），伤害即时走 `dealDamageToEnemy`（`scythe.ts:45`），视觉反馈只有一次 `slash` fx，弧线起止角塞进 `FxEvent.points`（`scythe.ts:48-55`；`FxKind` 新枚举 `types.ts:326`）。进化形态不新增 behavior：`scythe_eclipse` 在注册表里别名同一实现（`weapons/index.ts:33`），`fire` 内按 `w.id` 分支取数值（`scythe.ts:22-28`）。
+
+**mines：Projectile 承载"延时实体"。** 地雷与持续伤害区都是普通 Projectile（kind `'mine' | 'mine_bloom'`，`types.ts:219`），不引入新池：
+- `mine`：`data0` = 布防倒计时（0.4s，`mines.ts:44,125-128`）；布防期结束后感应半径内查敌（`grid.query`，`mines.ts:129-137`）或寿命（6s）耗尽即 `detonate`（`mines.ts:138-141`）；
+- `mine_bloom`（伤害区形态）：`data1 = 1` 为标记位（`mines.ts:66`），`rehit` 承载跳伤间隔（0.5s，`mines.ts:63,113`），每跳对半径内敌人结算 `dmg × 0.35`（noFlash、零击退，`mines.ts:117`）；
+- 布雷在 `update` 中自计时：`fire` 是空壳注释（`mines.ts:87-89`），`update` 内 `if (w.cd <= 0)` 布设当批地雷、播 sfx 并重置 `w.cd = mines.cooldown(level) × stats.cooldownMul`（`mines.ts:92-101`）；`w.cd` 的逐帧扣减由 sim 主循环统一完成（`sim.ts:72`）。
+
+**实现注意：带 update 的武器与分发器。** sim 的武器分发规则：每帧对所有武器统一 `w.cd -= dt`（`sim.ts:72`）；仅当 `w.cd <= 0 && !behavior.update` 才调用 `fire` 并按 `cooldown × stats.cooldownMul` 重置（`sim.ts:73-76`）；随后无条件调用 `behavior.update`（`sim.ts:77`）。即**分发器不会对带 update 的武器调 fire**。现有带 update 的武器分两种方案：orbit/drones/frost 的 `fire` 是空壳、逻辑全在 attendants 自驱；mines 采用 update 自计时布雷（frost 光环同族模式，`mines.ts:90-101`）。新写"周期性放置型"武器时照抄 mines 模式，不要在带 update 的武器里写实质 `fire`（永远不会被调用）；测试同样应走 update 真实路径（`tests/weapons.spec.ts:76` 起）。
+
+### 12.6 调试钩子：window.__app
+
+`main.ts` 在 boot 时把 GameApp 实例挂到 `window.__app`（`main.ts:26-27`，注释明确"QA/调试句柄（不影响游戏逻辑）"）。浏览器控制台 QA 用法：
+
+```js
+__app.mode                        // 当前 AppMode（app.ts:62）
+__app.state                       // 进行中的 RunState：state.loop / state.loopStart /
+                                  //   state.director.timelineIdx / state.time
+__app.save.meta.victories = 1     // 解锁无尽（判断点 ui.ts:232；改内存值后重开角色屏即生效，
+                                  //   下次 persistSave 落盘——如 finishRun / updateSettings）
+__app.startRun('endless')         // 直接开一局无尽（app.ts:145；daily 同理）
+__app.state.dailyModifier         // 每日命中修正器 id（注入点 app.ts:162）
+__app.checkMetaAchievements()     // 手动触发 meta 通道成就判定（app.ts:434）
+__app.unlockAchievements(['depth_2'])  // 手动解锁成就（app.ts:417）
+__app.abandonRun()                // 以失败结算当前局（app.ts:187，走完整 finishRun 管道）
+__app.resetSave()                 // 清档（app.ts:409）
+```
+
+典型 QA 流：无尽循环验证 = `__app.save.meta.victories = 1` → `__app.startRun('endless')` → 击杀 boss_eye 后检查 `__app.state.loop === 1 && __app.state.loopStart` 已重置且时间轴重放；每日验证 = `__app.startRun('daily')` 后读 `__app.state.dailyModifier` 与 stats 是否符合 `DAILY_MODIFIERS` 对应项。另：`?seed=` 参数仍被解析但丢弃（`main.ts:29-30`），未接线状态与 v1.0 文档一致。
