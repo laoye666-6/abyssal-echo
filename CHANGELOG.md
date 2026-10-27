@@ -97,3 +97,16 @@
 - **爆炸特效**：动态径向渐变 → 缓存辉光贴图 + 白环描边
 - **自适应画质分级**：EMA 帧时间监控，>19ms 快速降档（DPR 上限 1.5→1、关云气、减粒子），<14.5ms 自动回升——弱机自动保 60fps
 - **实测**：压力场景渲染均值 4.79ms / P95 13.8ms（预算 16.67ms），较优化前（同场景 7.26ms/20.3ms，且原始基线测量时特效近乎为空）显著改善；星空/网格绘制实测仅 0.18ms 维持原案
+
+### Android & Open Source（2026-10-28 凌晨）
+
+- **Android 横屏版**（Capacitor 7 封装，`android/`）：
+  - `sensorLandscape` 强制横屏 + 沉浸式全屏（隐藏系统栏，下拉临时呼出）+ 游戏中屏幕常亮
+  - 竖屏持机显示"请横持设备"遮罩并自动暂停对局（`src/ui/mobile.ts`）
+  - 触屏虚拟摇杆 + 冲刺键（此前已实现）在 coarse-pointer 设备自动启用
+  - 自适应启动图标（深空底 + 青色信标，unique 资源名规避模板 v24 遮蔽）
+  - **零权限清单**（纯单机，移除 INTERNET）· minSdk 24 / target 36
+  - 开源签名模式：`android/keystore.properties` 不入库，缺失时 release 回退 debug 签名，clone 即可出包
+  - 产物：签名 release APK（apksigner 验证通过），GitHub Release v1.0.0 分发
+- **开源发布**：MIT LICENSE、双语 README（截图/徽章/构建指南）、GitHub 公开仓库 + Release
+- 已知限制：模拟器验证因宿主机无 hypervisor 驱动跳过（驱动安装需管理员）；APK 内嵌 Web 内容与浏览器全链路验证版本一致
