@@ -1,4 +1,4 @@
-import type { CharacterId, DailyModifier } from '@/game/types';
+import type { CharacterId, DailyModifier, Stats } from '@/game/types';
 import { dailySeed } from '@/game/balance';
 
 /** 每日角色轮换名单（不受解锁限制——每日即试用日）。 */
@@ -63,4 +63,30 @@ export const DAILY_MODIFIERS: DailyModifier[] = [
 export function dailyModifierFor(date: string): DailyModifier {
   const seed = dailySeed(date);
   return DAILY_MODIFIERS[seed % DAILY_MODIFIERS.length]!;
+}
+
+/**
+ * 每日修正器的 Stats 侧效果重放。
+ * recomputeStats 会从 角色+元进度+被动 全量重建属性，apply() 在开局写入的
+ * stats 改动会被冲掉——升级/被动每次重建后必须按 dailyModifier 重放一次。
+ * （enemySpeedMul/enemyHpMul/bossHpMul 挂在 state 上，不受重建影响。）
+ */
+export function applyDailyStatsMods(modId: string | null, stats: Stats): void {
+  switch (modId) {
+    case 'swift_swarm':
+      stats.xpMul *= 1.2;
+      break;
+    case 'magnet_storm':
+      stats.pickupRadius *= 2;
+      break;
+    case 'thick_hide':
+      stats.damageMul *= 1.15;
+      break;
+    case 'glass_cannon':
+      stats.critChance = Math.min(0.95, stats.critChance + 0.1);
+      stats.maxHp = Math.max(40, Math.round(stats.maxHp * 0.85));
+      break;
+    default:
+      break;
+  }
 }

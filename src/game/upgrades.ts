@@ -8,6 +8,7 @@
 import { BASE_WEAPONS, MAX_PASSIVE_SLOTS, MAX_WEAPON_SLOTS, WEAPON_DATA } from '@/data/weapons.data';
 import { PASSIVE_DEFS } from '@/data/passives.data';
 import { CHARACTER_DEFS } from '@/data/characters.data';
+import { applyDailyStatsMods } from '@/data/daily.data';
 import type {
   PassiveId, RunState, UpgradeOption, WeaponId,
 } from './types';
@@ -169,6 +170,8 @@ export function recomputeStats(state: RunState): void {
   for (const p of state.passives) {
     PASSIVE_DEFS[p.id].apply(stats, p.level);
   }
+  // 每日修正器的 Stats 侧效果重建后重放（否则首次升级即丢失）
+  if (state.dailyModifier) applyDailyStatsMods(state.dailyModifier, stats);
   Object.assign(state.stats, stats);
   const delta = state.stats.maxHp - oldMax;
   if (delta > 0) state.player.hp = Math.min(state.stats.maxHp, state.player.hp + delta);

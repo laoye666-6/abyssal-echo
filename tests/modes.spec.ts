@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { makeRunState } from '@/game/state';
+import { recomputeStats } from '@/game/upgrades';
 import { defaultMeta } from '@/core/save';
 import { stepSim } from '@/game/sim';
 import { EnemyGrid, spawnEnemy, killEnemy } from '@/game/combat';
@@ -134,5 +135,29 @@ describe('v1.1 运行模式', () => {
     }
     expect(s.dailyDate).toBe(date);
   });
-});
 
+  it('每日修正器 Stats 侧效果在 recomputeStats 重建后不丢失', () => {
+    const s = makeState(7);
+    s.mode = 'daily';
+    s.dailyModifier = 'glass_cannon';
+    const mod = DAILY_MODIFIERS.find((m) => m.id === 'glass_cannon')!;
+    mod.apply(s);
+    const crit0 = s.stats.critChance;
+    const hp0 = s.stats.maxHp;
+    // 升级被动触发全量重建
+    s.passives.push({ id: 'vessel', level: 1 });
+    recomputeStats(s);
+    expect(s.stats.critChance).toBeCloseTo(crit0, 6);
+    // 重放语义：对重建后的总血量乘 0.85 —— (100 基础 + 25 vessel) × 0.85 = 106
+    expect(s.stats.maxHp).toBe(106);
+    // thick_hide 伤害重放
+    const s2 = makeState(7);
+    s2.mode = 'daily';
+    s2.dailyModifier = 'thick_hide';
+    DAILY_MODIFIERS.find((m) => m.id === 'thick_hide')!.apply(s2);
+    const dmg0 = s2.stats.damageMul;
+    s2.passives.push({ id: 'overdrive', level: 1 });
+    recomputeStats(s2);
+    expect(s2.stats.damageMul).toBeCloseTo(dmg0 * 1.08, 6); // overdrive ×1.08，thick_hide ×1.15 已重放
+  });
+});
