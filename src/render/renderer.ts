@@ -40,6 +40,8 @@ interface Star { x: number; y: number; s: number; a: number; layer: number }
 export interface RenderOpts {
   showDamageNumbers: boolean;
   shakeMul: number;
+  /** 低闪模式：抑制低血红晕脉冲等高频闪烁 */
+  reducedFlash: boolean;
 }
 
 const DMG_CAP = 90;
@@ -315,6 +317,31 @@ export class Renderer {
 
   private drawProjectiles(state: RunState): void {
     state.projectiles.forEach((p) => {
+      // 星棘雷：data1=1 为持续伤害区，其余为感应地雷
+      if (p.kind === 'mine' || p.kind === 'mine_bloom') {
+        if (p.data1 === 1) {
+          this.drawGlowAt(p.x, p.y, p.r, p.color, 0.28);
+          const ctx = this.ctx;
+          ctx.globalAlpha = 0.16 + 0.06 * Math.sin(this.time * 6);
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 0.45;
+          ctx.strokeStyle = p.color;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+          return;
+        }
+        const armed = p.data0 <= 0;
+        this.drawGlowAt(p.x, p.y, p.r * 2.2, p.color, armed ? 0.55 : 0.22);
+        const pulse = armed ? 1 + Math.sin(this.time * 10 + p.id) * 0.12 : 0.8;
+        this.drawSprite(`pr_${p.kind}`, p.x, p.y, p.r * pulse, this.time * 2);
+        return;
+      }
       const key = `pr_${p.kind}`;
       const ang = Math.atan2(p.vy, p.vx) + Math.PI / 2;
       // 尾迹
@@ -522,6 +549,26 @@ export class Renderer {
           this.drawGlowAt(f.x, f.y, f.r * (1 + k * 2), '#ffc45b', (1 - k) * 0.9);
           break;
         }
+        case 'slash': {
+          // 弧形斩击：points = [起始角, 结束角]
+          const a0 = f.points?.[0] ?? 0;
+          const a1 = f.points?.[1] ?? Math.PI * 2;
+          const rr = f.r * (0.78 + 0.22 * k);
+          ctx.globalAlpha = (1 - k) * 0.9;
+          ctx.strokeStyle = f.color;
+          ctx.lineWidth = 10 * (1 - k) + 2;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.arc(f.x, f.y, rr, a0, a1);
+          ctx.stroke();
+          ctx.globalAlpha = (1 - k) * 0.55;
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 3 * (1 - k) + 0.5;
+          ctx.beginPath();
+          ctx.arc(f.x, f.y, rr * 1.05, a0, a1);
+          ctx.stroke();
+          break;
+        }
         default:
           break;
       }
@@ -582,6 +629,9 @@ export class Renderer {
         break;
       case 'core':
         this.fx.push({ kind: 'core', x: ev.x, y: ev.y, x2: 0, y2: 0, r: ev.r ?? 14, color: ev.color, t: 0, max: 0.5 });
+        break;
+      case 'slash':
+        this.fx.push({ kind: 'slash', x: ev.x, y: ev.y, x2: 0, y2: 0, r: ev.r ?? 95, color: ev.color, t: 0, max: 0.28, points: ev.points });
         break;
       default:
         break;
@@ -686,7 +736,7 @@ export class Renderer {
     ctx.drawImage(this.vignette, 0, 0, this.w, this.h);
 
     if (lowHp) {
-      const a = 0.12 + 0.1 * Math.sin(this.time * 6);
+      const a = this.opts.reducedFlash ? 0.14 : 0.12 + 0.1 * Math.sin(this.time * 6);
       const g = ctx.createRadialGradient(this.w / 2, this.h / 2, Math.min(this.w, this.h) * 0.3, this.w / 2, this.h / 2, Math.max(this.w, this.h) * 0.7);
       g.addColorStop(0, 'rgba(255,40,40,0)');
       g.addColorStop(1, `rgba(255,30,30,${a.toFixed(3)})`);

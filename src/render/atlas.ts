@@ -7,6 +7,7 @@ export type SpriteKey =
   | 'player' | 'gem' | 'pick_heal' | 'pick_bomb' | 'pick_core'
   | 'pr_pulse' | 'pr_pulse_supernova' | 'pr_nova' | 'pr_nova_collapse'
   | 'pr_shard' | 'pr_shard_mirror' | 'pr_drone' | 'pr_orbit' | 'pr_orbit_corona'
+  | 'pr_mine' | 'pr_mine_bloom'
   | 'ebullet'
   | `enemy_${string}`;
 
@@ -410,6 +411,80 @@ function paintBossEye(ctx: CanvasRenderingContext2D, r: number): void {
   }
 }
 
+// ---------------- v1.1 新增 ----------------
+
+/** 星棘雷：八向棘刺壳体 + 芯点 */
+function paintMine(ctx: CanvasRenderingContext2D, r: number): void {
+  ctx.shadowColor = 'rgba(168,244,255,1)';
+  poly(
+    ctx,
+    [[0, -r * 1.2], [r * 0.5, -r * 0.3], [r * 1.1, 0], [r * 0.5, r * 0.3], [0, r * 1.2], [-r * 0.5, r * 0.3], [-r * 1.1, 0], [-r * 0.5, -r * 0.3]],
+    'rgba(20,40,52,0.95)', '#a8f4ff', 1.5,
+  );
+  circle(ctx, 0, 0, r * 0.42, '#a8f4ff');
+}
+
+/** 星棘花海：绿色变体 + 高亮芯 */
+function paintMineBloom(ctx: CanvasRenderingContext2D, r: number): void {
+  ctx.shadowColor = 'rgba(122,255,208,1)';
+  poly(
+    ctx,
+    [[0, -r * 1.25], [r * 0.55, -r * 0.35], [r * 1.15, 0], [r * 0.55, r * 0.35], [0, r * 1.25], [-r * 0.55, r * 0.35], [-r * 1.15, 0], [-r * 0.55, -r * 0.35]],
+    'rgba(16,48,38,0.95)', '#7affd0', 1.5,
+  );
+  circle(ctx, 0, 0, r * 0.45, '#7affd0');
+  circle(ctx, 0, 0, r * 0.2, '#eafff6');
+}
+
+/** 回响体：镜面人形双弧 */
+function paintEliteEcho(ctx: CanvasRenderingContext2D, r: number): void {
+  ctx.shadowColor = 'rgba(168,244,255,1)';
+  circle(ctx, 0, 0, r, 'rgba(24,42,58,0.95)', '#a8f4ff', 2);
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = '#d8f8ff';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(-r * 0.25, -r * 0.1, r * 0.35, Math.PI * 0.5, Math.PI * 1.5);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(r * 0.25, r * 0.1, r * 0.35, Math.PI * 1.5, Math.PI * 2.5);
+  ctx.stroke();
+  circle(ctx, 0, 0, r * 0.16, '#ffffff');
+}
+
+/** 图标：虚空收割（弧刃 + 柄） */
+function paintScytheIcon(ctx: CanvasRenderingContext2D, r: number): void {
+  ctx.shadowColor = 'rgba(200,180,255,1)';
+  ctx.strokeStyle = '#c8b4ff';
+  ctx.lineWidth = r * 0.24;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(0, r * 0.3, r * 0.78, Math.PI * 1.12, Math.PI * 1.88);
+  ctx.stroke();
+  ctx.strokeStyle = '#8f7ad8';
+  ctx.lineWidth = r * 0.16;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.68, r * 0.85);
+  ctx.lineTo(r * 0.18, -r * 0.5);
+  ctx.stroke();
+}
+
+/** 图标：星棘雷 */
+function paintMinesIcon(ctx: CanvasRenderingContext2D, r: number): void {
+  ctx.shadowColor = 'rgba(122,255,208,1)';
+  poly(
+    ctx,
+    [[0, -r], [r * 0.6, -r * 0.2], [r * 0.75, r * 0.5], [0, r * 0.9], [-r * 0.75, r * 0.5], [-r * 0.6, -r * 0.2]],
+    'rgba(16,48,38,0.95)', '#7affd0', 1.5,
+  );
+  circle(ctx, 0, 0, r * 0.3, '#7affd0');
+  ctx.strokeStyle = '#7affd0';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.55, 0.3, 1.4);
+  ctx.stroke();
+}
+
 /** 精灵尺寸（半径）表 */
 const SIZES: Record<string, number> = {
   player: 15,
@@ -426,9 +501,13 @@ const SIZES: Record<string, number> = {
   pr_drone: 7,
   pr_orbit: 8,
   pr_orbit_corona: 9,
+  pr_mine: 7,
+  pr_mine_bloom: 8,
   icon_arc: 13,
   icon_lance: 13,
   icon_frost: 13,
+  icon_scythe: 13,
+  icon_mines: 13,
   ebullet: 7,
   enemy_mote: 10,
   enemy_dart: 11,
@@ -441,6 +520,7 @@ const SIZES: Record<string, number> = {
   enemy_elite_haste: 20,
   enemy_elite_shield: 26,
   enemy_elite_mother: 25,
+  enemy_elite_echo: 22,
   enemy_boss_devourer: 34,
   enemy_boss_eye: 40,
 };
@@ -460,9 +540,13 @@ const PAINTERS: Record<string, Painter> = {
   pr_drone: paintDrone,
   pr_orbit: paintOrbitBlade,
   pr_orbit_corona: paintOrbitCorona,
+  pr_mine: paintMine,
+  pr_mine_bloom: paintMineBloom,
   icon_arc: paintArcIcon,
   icon_lance: paintLanceIcon,
   icon_frost: paintFrostIcon,
+  icon_scythe: paintScytheIcon,
+  icon_mines: paintMinesIcon,
   ebullet: paintEBullet,
   enemy_mote: paintMote,
   enemy_dart: paintDart,
@@ -475,6 +559,7 @@ const PAINTERS: Record<string, Painter> = {
   enemy_elite_haste: paintEliteBase,
   enemy_elite_shield: paintEliteBase,
   enemy_elite_mother: paintEliteBase,
+  enemy_elite_echo: paintEliteEcho,
   enemy_boss_devourer: paintBossDevourer,
   enemy_boss_eye: paintBossEye,
 };

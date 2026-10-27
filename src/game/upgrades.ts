@@ -128,6 +128,7 @@ export function applyOption(state: RunState, opt: UpgradeOption): void {
     case 'evolution': {
       const w = weaponInst(state, opt.id);
       if (w) w.id = opt.into;
+      state.evolutions++;
       // 清掉旧武器的常驻随从（否则 orbit/drones/frost 进化后留下永久幽灵）
       state.attendants.forEach((a) => {
         if (a.ownerWeapon === opt.id) state.attendants.despawn(a);
@@ -190,6 +191,9 @@ export function collectRunSummary(state: RunState) {
     weapons: state.weapons.map((w) => w.id),
     passives: state.passives.map((p) => p.id),
     characterId: state.characterId,
+    evolutions: state.evolutions,
+    mode: state.mode,
+    depth: state.loop,
   };
 }
 

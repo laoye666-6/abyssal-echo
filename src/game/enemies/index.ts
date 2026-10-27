@@ -133,6 +133,53 @@ const behaviors: Record<string, EnemyUpdateFn> = {
     }
     behaviors.chaser!(state, e, dt);
   },
+
+  // v1.1：回响体——接近 → 蓄力 telegraph → 高速突进。e.t>0 = 突进中。
+  dasher(state, e, dt) {
+    const def = ENEMY_DEFS[e.kind];
+    const f = speedFactor(e);
+
+    if (e.t > 0) {
+      // 突进中：沿锁定方向全速（每帧重写速度，绕过阻尼）
+      e.t -= dt;
+      const sp = e.speed * (def.params?.dashMul ?? 3.2);
+      const l = Math.hypot(e.tx, e.ty) || 1;
+      e.vx = (e.tx / l) * sp;
+      e.vy = (e.ty / l) * sp;
+      return;
+    }
+
+    e.phase -= dt;
+    if (e.phase <= 0 && e.phase > -(def.params?.telegraph ?? 0.8)) {
+      // 蓄力：急停 + telegraph 特效（此区间 phase 为负计数）
+      e.vx *= Math.pow(0.0005, dt);
+      e.vy *= Math.pow(0.0005, dt);
+      if (state.rng.chance(dt * 8)) {
+        state.events.fx.push({ kind: 'telegraph', x: e.x, y: e.y, r: e.r * 2.2, color: def.color });
+      }
+      if (e.phase <= -(def.params?.telegraph ?? 0.8)) {
+        // 蓄力完毕：锁定玩家当前位置方向开始突进
+        const dx = state.player.x - e.x;
+        const dy = state.player.y - e.y;
+        e.tx = dx;
+        e.ty = dy;
+        e.t = def.params?.dashTime ?? 0.5;
+        e.phase = def.params?.dashCd ?? 3.2;
+        state.events.sfx.push({ name: 'warning', v: 0.5, p: 1.6 });
+      }
+      return;
+    }
+
+    // 常规接近
+    const p = state.player;
+    const dx = p.x - e.x;
+    const dy = p.y - e.y;
+    const tvx = normX(dx, dy) * e.speed * f;
+    const tvy = normY(dx, dy) * e.speed * f;
+    const k = Math.min(1, dt * 6);
+    e.vx += (tvx - e.vx) * k;
+    e.vy += (tvy - e.vy) * k;
+  },
 };
 
 export function updateEnemy(state: RunState, e: Enemy, dt: number): void {

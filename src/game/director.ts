@@ -26,7 +26,8 @@ const tmp = { x: 0, y: 0 };
 
 export function stepDirector(state: RunState, dt: number): void {
   const d = state.director;
-  const t = state.time;
+  // 无尽循环：导演时间轴以当前循环起点为基准重放
+  const t = state.mode === 'endless' ? state.time - state.loopStart : state.time;
 
   // ---- 相位推进 ----
   let phase = WAVE_PHASES[0]!;

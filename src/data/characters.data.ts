@@ -16,4 +16,9 @@ export const CHARACTER_DEFS: Record<string, CharacterDef> = {
     stats: { maxHp: 80, areaMul: 1.25, critChance: 0.15 },
     startWeapon: 'nova',
   },
+  vesper: {
+    id: 'vesper',
+    stats: { maxHp: 90, cooldownMul: 0.92, moveSpeed: 210 },
+    startWeapon: 'scythe',
+  },
 };

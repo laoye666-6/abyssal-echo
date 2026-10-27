@@ -1,11 +1,14 @@
 import { t } from '@/core/i18n';
 import { persistSave } from '@/core/save';
-import type { CharacterId, MetaUpgradeNode, UpgradeOption } from '@/game/types';
+import type { CharacterId, MetaUpgradeNode, RunMode, UpgradeOption } from '@/game/types';
 import { CHARACTER_DEFS } from '@/data/characters.data';
 import { ENEMY_DEFS } from '@/data/enemies.data';
 import { META_NODES } from '@/data/meta.data';
 import { WEAPON_DATA } from '@/data/weapons.data';
-import { formatTime } from '@/core/math';
+import { DAILY_ROSTER, dailyModifierFor } from '@/data/daily.data';
+import { ACHIEVEMENTS, achievementProgress } from '@/game/achievements';
+import { formatTime, formatCompact } from '@/core/math';
+import { dailyCharacter, todayStr } from '@/game/balance';
 import type { GameApp, RunResult } from '@/app';
 import type { Sprite } from '@/render/atlas';
 
@@ -29,12 +32,16 @@ function btn(label: string, onClick: () => void, cls = 'btn'): HTMLButtonElement
 /** UI 管理器：DOM 覆盖层，全部屏幕。 */
 export class UiManager {
   private root: HTMLDivElement | null = null;
+  /** 全局 toast 层（挂在 #app 下，不随屏幕重建消失） */
+  private toastLayer: HTMLDivElement | null = null;
 
   constructor(private readonly app: GameApp) {}
 
   mount(parent: HTMLElement): void {
     this.root = el('div', 'ui-root');
     parent.appendChild(this.root);
+    this.toastLayer = el('div', 'toast-layer');
+    parent.appendChild(this.toastLayer);
     // 首次手势解锁音频
     const unlock = () => {
       this.app.unlockAudio();
@@ -43,6 +50,19 @@ export class UiManager {
     };
     window.addEventListener('pointerdown', unlock);
     window.addEventListener('keydown', unlock);
+  }
+
+  /** 全局 toast（3.2s 自动消失，堆叠上限 4） */
+  toast(msg: string): void {
+    const layer = this.toastLayer;
+    if (!layer) return;
+    while (layer.children.length >= 4) layer.firstChild?.remove();
+    const node = el('div', 'toast', msg);
+    layer.appendChild(node);
+    window.setTimeout(() => {
+      node.classList.add('out');
+      window.setTimeout(() => node.remove(), 320);
+    }, 2900);
   }
 
   private clear(): void {
@@ -78,6 +98,8 @@ export class UiManager {
       arc: 'icon_arc', lance: 'icon_lance', drones: 'pr_drone', frost: 'icon_frost',
       arc_tempest: 'icon_arc', lance_singularity: 'icon_lance',
       drones_hive: 'pr_drone', frost_zero: 'icon_frost',
+      scythe: 'icon_scythe', scythe_eclipse: 'icon_scythe',
+      mines: 'icon_mines', mines_bloom: 'icon_mines',
     };
     return map[id] ?? 'pr_pulse';
   }
@@ -91,12 +113,82 @@ export class UiManager {
     s.appendChild(el('div', 'title-tagline', t('app.tagline')));
     const menu = el('div', 'title-menu');
     menu.appendChild(btn(t('menu.start'), () => this.app.showCharacters(), 'btn primary big'));
+    menu.appendChild(btn(t('menu.daily'), () => this.showDaily(), 'btn daily'));
     menu.appendChild(btn(t('menu.upgrades'), () => this.app.showMeta()));
     menu.appendChild(btn(t('menu.codex'), () => this.app.showCodex()));
+    menu.appendChild(btn(t('menu.achievements'), () => this.app.showAchievements()));
     menu.appendChild(btn(t('menu.settings'), () => this.app.showSettings()));
     s.appendChild(menu);
     const m = this.app.save.meta;
     s.appendChild(el('div', 'title-meta-line', `◆ ${m.cores} · ✦ ${m.lifetimeKills} · ${t('stat.bestTime')} ${formatTime(m.bestTime)}`));
+  }
+
+  // ---------------- 每日挑战（v1.1） ----------------
+
+  showDaily(): void {
+    this.clear();
+    const s = this.screen('daily-screen');
+    s.appendChild(el('h2', 'screen-title', t('daily.title')));
+    const date = todayStr();
+    const meta = this.app.save.meta;
+    const mod = dailyModifierFor(date);
+    const charId = dailyCharacter(date, DAILY_ROSTER);
+    const best = meta.dailyBest.date === date ? meta.dailyBest.score : 0;
+
+    const panel = el('div', 'daily-panel');
+    panel.appendChild(el('div', 'daily-date', `${t('daily.date')}：${date}`));
+
+    const charRow = el('div', 'daily-char');
+    charRow.appendChild(this.icon('player', 44));
+    charRow.appendChild(el('div', 'daily-char-text',
+      `<div class="daily-k">${t('daily.char')}</div><div class="daily-v"><b>${t(`char.${charId}.name`)}</b> · ${t(`char.${charId}.title`)}</div>`));
+    panel.appendChild(charRow);
+
+    const modRow = el('div', 'daily-mod');
+    modRow.appendChild(el('div', 'daily-k', t('daily.mod')));
+    modRow.appendChild(el('div', 'daily-v', t(mod.descKey)));
+    panel.appendChild(modRow);
+
+    const stateRow = el('div', 'daily-state');
+    stateRow.appendChild(el('span', `daily-badge ${best > 0 ? 'done' : ''}`, best > 0 ? t('daily.completed') : t('daily.notCompleted')));
+    stateRow.appendChild(el('span', 'daily-best', `${t('daily.best')}：${best}`));
+    panel.appendChild(stateRow);
+
+    s.appendChild(panel);
+    const menu = el('div', 'menu-col');
+    menu.appendChild(btn(t('daily.start'), () => this.app.startRun('daily'), 'btn primary big'));
+    menu.appendChild(btn(t('settings.back'), () => this.app.showTitle()));
+    s.appendChild(menu);
+  }
+
+  // ---------------- 成就（v1.1） ----------------
+
+  showAchievements(): void {
+    this.clear();
+    const s = this.screen('achv-screen');
+    const meta = this.app.save.meta;
+    const total = ACHIEVEMENTS.length;
+    const got = ACHIEVEMENTS.filter((a) => meta.achievements[a.id]).length;
+    s.appendChild(el('h2', 'screen-title', t('achv.title')));
+    s.appendChild(el('div', 'achv-count', t('achv.count', { n: got, total })));
+
+    const list = el('div', 'achv-list');
+    for (const a of ACHIEVEMENTS) {
+      const unlocked = !!meta.achievements[a.id];
+      const cell = el('div', `achv-cell ${unlocked ? 'unlocked' : ''}`);
+      cell.appendChild(el('div', 'achv-badge', unlocked ? '✦' : '🔒'));
+      const body = el('div', 'achv-body');
+      body.appendChild(el('div', 'achv-name', t(`achv.${a.id}.name`)));
+      body.appendChild(el('div', 'achv-desc', t(`achv.${a.id}.desc`)));
+      cell.appendChild(body);
+      const prog = unlocked ? null : achievementProgress(a, meta);
+      if (prog) {
+        cell.appendChild(el('div', 'achv-progress', `${formatCompact(prog[0])} / ${formatCompact(prog[1])}`));
+      }
+      list.appendChild(cell);
+    }
+    s.appendChild(list);
+    s.appendChild(btn(t('settings.back'), () => this.app.showTitle(), 'btn big'));
   }
 
   // ---------------- 角色 ----------------
@@ -107,8 +199,9 @@ export class UiManager {
     s.appendChild(el('h2', 'screen-title', t('menu.characters')));
     const row = el('div', 'char-row');
     const unlocked = this.app.save.meta.unlocked;
+    const roster: CharacterId[] = ['peregrine', 'bastion', 'astraeus', 'vesper'];
 
-    for (const id of ['peregrine', 'bastion', 'astraeus'] as CharacterId[]) {
+    for (const id of roster) {
       const def = CHARACTER_DEFS[id]!;
       const isUnlocked = unlocked.includes(id);
       const card = el('div', `char-card ${this.app.selectedCharacter === id ? 'selected' : ''} ${isUnlocked ? '' : 'locked'}`);
@@ -129,16 +222,37 @@ export class UiManager {
           this.app.selectedCharacter === id ? 'btn primary' : 'btn',
         ));
       } else {
-        const hint = id === 'bastion' ? '存活 4:00 解锁' : '击败任意 Boss 解锁';
-        card.appendChild(el('div', 'char-perk muted', hint));
+        card.appendChild(el('div', 'char-perk muted', t(`char.lock.${id}`)));
       }
       row.appendChild(card);
     }
     s.appendChild(row);
+
+    // 模式选择（标准 / 无尽）
+    const endlessUnlocked = this.app.save.meta.victories > 0;
+    const modeRow = el('div', 'mode-row');
+    modeRow.appendChild(el('span', 'mode-label', t('results.mode')));
+    const mkMode = (m: RunMode, label: string): HTMLButtonElement => {
+      const active = this.app.selectedMode === m;
+      const b = btn(label, () => {
+        this.app.selectedMode = m;
+        this.showCharacters();
+      }, `btn small ${active ? 'primary' : ''}`);
+      if (m === 'endless' && !endlessUnlocked) b.disabled = true;
+      return b;
+    };
+    modeRow.appendChild(mkMode('standard', t('mode.standard')));
+    const endlessBtn = mkMode('endless', `${t('mode.endless')}${endlessUnlocked ? '' : ' 🔒'}`);
+    modeRow.appendChild(endlessBtn);
+    s.appendChild(modeRow);
+    if (this.app.selectedMode === 'endless' && endlessUnlocked) {
+      s.appendChild(el('div', 'mode-desc', t('endless.desc')));
+    }
+
     const foot = el('div', 'char-foot');
     foot.appendChild(btn(t('char.back'), () => this.app.showTitle()));
     const sel = this.app.selectedCharacter;
-    const startB = btn(t('menu.start'), () => this.app.startRun(), 'btn primary big');
+    const startB = btn(t('menu.start'), () => this.app.startRun(this.app.selectedMode), 'btn primary big');
     if (!unlocked.includes(sel)) startB.disabled = true;
     foot.appendChild(startB);
     s.appendChild(foot);
@@ -251,16 +365,21 @@ export class UiManager {
     const s = this.screen('results-screen');
     s.appendChild(el('h1', `results-title ${r.victory ? 'victory' : 'defeat'}`, r.victory ? t('results.victory') : t('results.defeat')));
     if (r.newRecord) s.appendChild(el('div', 'new-record', t('results.newRecord')));
+    if (r.newDailyBest) s.appendChild(el('div', 'new-record daily', t('results.newDailyBest')));
     if (r.unlockToast) s.appendChild(el('div', 'unlock-toast', t('toast.unlockChar', { name: r.unlockToast })));
 
     const panel = el('div', 'results-panel');
     const rows: [string, string][] = [
+      [t('results.mode'), t(`mode.${r.mode}`)],
       [t('results.time'), formatTime(r.time)],
       [t('results.kills'), String(r.kills)],
       [t('results.level'), String(r.level)],
       [t('results.damage'), String(r.damageDealt)],
       [t('meta.cores'), `+${r.cores} ◆`],
     ];
+    if (r.mode === 'endless') rows.splice(2, 0, [t('results.depth'), String(r.depth)]);
+    if (r.evolutions > 0) rows.push([t('results.evolutions'), String(r.evolutions)]);
+    if (r.mode === 'daily') rows.push([t('results.dailyScore'), String(r.dailyScore)]);
     for (const [k, v] of rows) {
       const rowEl = el('div', 'stat-row', `<span class="stat-k">${k}</span><span class="stat-v">${v}</span>`);
       panel.appendChild(rowEl);
@@ -268,7 +387,10 @@ export class UiManager {
     s.appendChild(panel);
 
     const menu = el('div', 'menu-row');
-    menu.appendChild(btn(t('results.again'), () => this.app.showCharacters(), 'btn primary big'));
+    const again = r.mode === 'daily'
+      ? btn(t('results.again'), () => this.app.showTitle(), 'btn primary big')
+      : btn(t('results.again'), () => this.app.showCharacters(), 'btn primary big');
+    menu.appendChild(again);
     menu.appendChild(btn(t('results.menu'), () => this.app.showTitle()));
     s.appendChild(menu);
   }
@@ -310,6 +432,18 @@ export class UiManager {
       'btn small',
     ));
     panel.appendChild(dmgRow);
+
+    const flashRow = el('div', 'setting-row');
+    flashRow.appendChild(el('span', 'setting-label', t('settings.reducedFlash')));
+    flashRow.appendChild(btn(
+      this.app.save.settings.reducedFlash ? t('common.on') : t('common.off'),
+      () => {
+        this.app.updateSettings((x) => { x.reducedFlash = !x.reducedFlash; });
+        this.showSettings();
+      },
+      'btn small',
+    ));
+    panel.appendChild(flashRow);
 
     const langRow = el('div', 'setting-row');
     langRow.appendChild(el('span', 'setting-label', t('settings.lang')));
@@ -386,12 +520,20 @@ export class UiManager {
 
     // 统计
     const m = this.app.save.meta;
+    const got = ACHIEVEMENTS.filter((a) => m.achievements[a.id]).length;
     const stats = el('div', 'stats-list');
     const rows: [string, string][] = [
       [t('stat.kills'), String(m.lifetimeKills)],
       [t('stat.bestTime'), formatTime(m.bestTime)],
       [t('stat.victories'), String(m.victories)],
       [t('stat.runs'), String(m.runs)],
+      [t('stat.bestKills'), String(m.bestKills)],
+      [t('stat.bestLevel'), String(m.bestLevel)],
+      [t('stat.totalCores'), `◆ ${m.totalCoresEarned}`],
+      [t('stat.playTime'), formatTime(m.totalPlaySeconds)],
+      [t('stat.endlessDepth'), String(m.endlessBestDepth)],
+      [t('stat.dailyBest'), m.dailyBest.score > 0 ? `${m.dailyBest.score} (${m.dailyBest.date})` : '—'],
+      [t('stat.achievements'), `${got}/${ACHIEVEMENTS.length}`],
       [t('meta.cores'), `◆ ${m.cores}`],
     ];
     for (const [k, v] of rows) {
@@ -457,6 +599,7 @@ export class UiManager {
     meta.cores -= cost;
     meta.upgrades[nodeId] = rank + 1;
     persistSave(this.app.save);
+    this.app.checkMetaAchievements();
     return true;
   }
 }

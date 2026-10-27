@@ -7,6 +7,8 @@ import { arc } from './arc';
 import { lance } from './lance';
 import { drones } from './drones';
 import { frost } from './frost';
+import { scythe } from './scythe';
+import { mines } from './mines';
 
 /** 武器行为注册表：id -> 行为实现（含进化形态）。 */
 export const WEAPON_BEHAVIORS: Record<WeaponId, WeaponBehavior> = {
@@ -18,6 +20,8 @@ export const WEAPON_BEHAVIORS: Record<WeaponId, WeaponBehavior> = {
   drones,
   frost,
   shard,
+  scythe,
+  mines,
   pulse_supernova: pulse,
   orbit_corona: orbit,
   nova_collapse: nova,
@@ -26,4 +30,6 @@ export const WEAPON_BEHAVIORS: Record<WeaponId, WeaponBehavior> = {
   drones_hive: drones,
   frost_zero: frost,
   shard_mirror: shard,
+  scythe_eclipse: scythe,
+  mines_bloom: mines,
 };

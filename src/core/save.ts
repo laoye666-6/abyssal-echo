@@ -1,7 +1,8 @@
 import type { SaveData, Settings, MetaSnapshot } from '@/game/types';
 
 const KEY = 'abyssal-echo.save.v1';
-const VERSION = 1;
+export const SAVE_VERSION = 2;
+const VERSION = SAVE_VERSION;
 
 export function defaultSettings(): Settings {
   return {
@@ -10,6 +11,7 @@ export function defaultSettings(): Settings {
     musicVolume: 0.55,
     screenShake: 1,
     showDamageNumbers: true,
+    reducedFlash: false,
   };
 }
 
@@ -23,6 +25,14 @@ export function defaultMeta(): MetaSnapshot {
     bestTime: 0,
     victories: 0,
     runs: 0,
+    achievements: {},
+    totalCoresEarned: 0,
+    bestKills: 0,
+    bestLevel: 0,
+    totalPlaySeconds: 0,
+    endlessBestDepth: 0,
+    dailyBest: { date: '', score: 0 },
+    charWins: {},
   };
 }
 
@@ -53,6 +63,27 @@ function mergeMeta(raw: unknown, base: MetaSnapshot): MetaSnapshot {
     if (typeof r.bestTime === 'number') out.bestTime = Math.max(0, r.bestTime);
     if (typeof r.victories === 'number') out.victories = Math.max(0, Math.floor(r.victories));
     if (typeof r.runs === 'number') out.runs = Math.max(0, Math.floor(r.runs));
+    // ---- v1.1 字段（全部可选，缺省回落默认） ----
+    if (r.achievements && typeof r.achievements === 'object') {
+      for (const [k, v] of Object.entries(r.achievements)) {
+        if (v === 1) out.achievements[k] = 1;
+      }
+    }
+    if (typeof r.totalCoresEarned === 'number') out.totalCoresEarned = Math.max(0, Math.floor(r.totalCoresEarned));
+    if (typeof r.bestKills === 'number') out.bestKills = Math.max(0, Math.floor(r.bestKills));
+    if (typeof r.bestLevel === 'number') out.bestLevel = Math.max(0, Math.floor(r.bestLevel));
+    if (typeof r.totalPlaySeconds === 'number') out.totalPlaySeconds = Math.max(0, r.totalPlaySeconds);
+    if (typeof r.endlessBestDepth === 'number') out.endlessBestDepth = Math.max(0, Math.floor(r.endlessBestDepth));
+    if (r.dailyBest && typeof r.dailyBest === 'object') {
+      const d = r.dailyBest as { date?: unknown; score?: unknown };
+      if (typeof d.date === 'string') out.dailyBest.date = d.date;
+      if (typeof d.score === 'number' && Number.isFinite(d.score)) out.dailyBest.score = Math.max(0, Math.floor(d.score));
+    }
+    if (r.charWins && typeof r.charWins === 'object') {
+      for (const [k, v] of Object.entries(r.charWins)) {
+        if (typeof v === 'number' && Number.isFinite(v)) out.charWins[k] = Math.max(0, Math.floor(v));
+      }
+    }
   }
   return out;
 }
@@ -65,7 +96,8 @@ export function loadSave(): SaveData {
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return base;
     const obj = parsed as Record<string, unknown>;
-    if (obj.version !== VERSION) return migrate(obj, base);
+    // v1 与 v2 字段结构兼容（v2 只是新增字段），同一解析路径；未知未来版本走迁移回落
+    if (obj.version !== 1 && obj.version !== VERSION) return migrate(obj, base);
     if (obj.settings && typeof obj.settings === 'object') {
       const s = obj.settings as Partial<Settings>;
       if (s.lang === 'zh' || s.lang === 'en') base.settings.lang = s.lang;
@@ -73,6 +105,7 @@ export function loadSave(): SaveData {
       if (typeof s.musicVolume === 'number') base.settings.musicVolume = clamp01(s.musicVolume);
       if (typeof s.screenShake === 'number') base.settings.screenShake = clamp01(s.screenShake);
       if (typeof s.showDamageNumbers === 'boolean') base.settings.showDamageNumbers = s.showDamageNumbers;
+      if (typeof s.reducedFlash === 'boolean') base.settings.reducedFlash = s.reducedFlash;
     }
     base.meta = mergeMeta(obj.meta, base.meta);
     return base;
@@ -85,8 +118,12 @@ function clamp01(v: number): number {
   return Math.min(1, Math.max(0, v));
 }
 
-function migrate(_old: Record<string, unknown>, base: SaveData): SaveData {
-  // 目前只有一个版本；未来版本在此逐级迁移。
+function migrate(old: Record<string, unknown>, base: SaveData): SaveData {
+  // v1 → v2：v1 的 settings/meta 结构与 v2 兼容，新字段由 defaultMeta/defaultSettings
+  // 提供默认值，mergeMeta/loadSave 的防御解析会补齐缺失项。此处只需保留旧 meta 数据。
+  if (old.version === 1 && old.meta && typeof old.meta === 'object') {
+    base.meta = mergeMeta(old.meta, base.meta);
+  }
   return base;
 }
 

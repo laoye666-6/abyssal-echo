@@ -34,6 +34,7 @@ export const TIMELINE: TimelineEvent[] = [
   { at: 440, kind: { type: 'pickupDrop', kind: 'heal' } },
   { at: 450, kind: { type: 'elite', id: 'elite_mother' } },
   { at: 470, kind: { type: 'elite', id: 'elite_haste' } },
+  { at: 500, kind: { type: 'elite', id: 'elite_echo' } },
   { at: 520, kind: { type: 'warning', key: 'warning.finalboss' } },
   { at: 540, kind: { type: 'boss', id: 'boss_eye' } },
 ];

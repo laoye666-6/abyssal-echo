@@ -79,6 +79,14 @@ export const ENEMY_DEFS: Record<EnemyKindId, EnemyDef> = {
     color: '#7affd0',
     params: { childId: 0, childCount: 4, spawnCd: 4 },
   },
+  // v1.1 新增：回响体——蓄力突进型精英
+  elite_echo: {
+    id: 'elite_echo', behavior: 'dasher',
+    hp: 640, speed: 70, contactDps: 26, radius: 22, xp: 45,
+    weight: 0, batch: 1, knockbackResist: 0.55, tier: 'elite',
+    color: '#a8f4ff',
+    params: { dashCd: 3.2, telegraph: 0.8, dashMul: 3.2, dashTime: 0.5 },
+  },
 
   // ------- Boss -------
   boss_devourer: {

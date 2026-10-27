@@ -262,7 +262,8 @@ export function stepSim(state: RunState, dt: number, ctrl: SimControl, grid: Ene
   });
 
   // ---------- 结束判定 ----------
-  if (!state.over && state.time > RUN_HARD_CAP) {
+  // 无尽模式无硬上限；标准/每日超时判负
+  if (!state.over && state.mode !== 'endless' && state.time > RUN_HARD_CAP) {
     state.over = { victory: false, reason: 'timeUp' };
   }
 

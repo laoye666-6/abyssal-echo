@@ -5,7 +5,7 @@
 import { ENEMY_DEFS } from '@/data/enemies.data';
 import { dist2 } from '@/core/math';
 import type { Enemy, EnemyKindId, FxEvent, RunState } from './types';
-import { enemyDmgScale, enemyHpScale, playerDamageTaken, rollCrit } from './balance';
+import { enemyDmgScale, enemyHpScale, loopHpMul, loopXpMul, playerDamageTaken, rollCrit } from './balance';
 
 // ---------------- 空间网格 ----------------
 
@@ -84,7 +84,8 @@ export function spawnEnemy(state: RunState, kind: EnemyKindId, x: number, y: num
   const def = ENEMY_DEFS[kind];
   const e = state.enemies.spawn();
   if (!e) return null;
-  const hpScale = def.tier === 'boss' ? hpMul : enemyHpScale(state.time) * hpMul;
+  const loopMul = state.mode === 'endless' && def.tier !== 'boss' ? loopHpMul(state.loop) : 1;
+  const hpScale = def.tier === 'boss' ? hpMul * state.bossHpMul : enemyHpScale(state.time) * hpMul * state.enemyHpMul * loopMul;
   e.kind = kind;
   e.x = x;
   e.y = y;
@@ -93,7 +94,7 @@ export function spawnEnemy(state: RunState, kind: EnemyKindId, x: number, y: num
   e.maxHp = Math.round(def.hp * hpScale);
   e.hp = e.maxHp;
   e.r = def.radius;
-  e.speed = def.speed;
+  e.speed = def.speed * state.enemySpeedMul;
   e.contactDps = def.contactDps * enemyDmgScale(state.time) * dmgMul;
   e.xp = def.xp;
   e.tier = def.tier;
@@ -172,13 +173,18 @@ export function killEnemy(state: RunState, e: Enemy): void {
   state.enemies.despawn(e);
   state.kills++;
 
-  // 经验宝石（精英/Boss 掉大宝石+星核）
-  spawnGem(state, e.x, e.y, e.xp);
+  // 经验宝石（精英/Boss 掉大宝石+星核；无尽循环提高宝石价值）
+  spawnGem(state, e.x, e.y, e.xp * loopXpMul(state.loop));
   if (e.tier === 'elite') {
     state.elitesKilled++;
     state.cores += 2;
     state.events.sfx.push({ name: 'kill', v: 1, p: 0.6 });
-    if (state.rng.chance(0.35)) spawnPickup(state, 'heal', e.x, e.y);
+    if (e.kind === 'elite_echo') {
+      // 回响体必掉星核拾取物
+      spawnPickup(state, 'core', e.x, e.y);
+    } else if (state.rng.chance(0.35)) {
+      spawnPickup(state, 'heal', e.x, e.y);
+    }
   } else if (e.tier === 'boss') {
     state.bossesKilled++;
     state.cores += 10;
@@ -188,7 +194,18 @@ export function killEnemy(state: RunState, e: Enemy): void {
     spawnPickup(state, 'bomb', e.x + 30, e.y);
     state.events.sfx.push({ name: 'boss', v: 1, p: 0.5 });
     if (e.kind === 'boss_eye') {
-      state.over = { victory: true, reason: 'bossDown' };
+      if (state.mode === 'endless') {
+        // 无尽：不结算，进入下一循环（深度 +1，时间轴重放）
+        state.loop++;
+        state.loopStart = state.time;
+        state.director.timelineIdx = 0;
+        state.director.phaseIndex = 0;
+        state.director.bossDone = false;
+        state.banner = { key: 'warning.endless', t: 3.2 };
+        state.events.sfx.push({ name: 'evolve', v: 1, p: 0.7 });
+      } else {
+        state.over = { victory: true, reason: 'bossDown' };
+      }
     }
     // Boss 死亡：清屏伤害（爽点）
     state.enemies.forEach((other) => {

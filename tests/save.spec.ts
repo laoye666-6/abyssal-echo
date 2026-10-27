@@ -26,7 +26,7 @@ afterEach(() => {
 describe('save 存档', () => {
   it('defaultSave 结构完整', () => {
     const s = defaultSave();
-    expect(s.version).toBe(1);
+    expect(s.version).toBe(2);
     expect(s.settings).toEqual(defaultSettings());
     expect(s.settings).toMatchObject({
       lang: 'zh',
@@ -34,6 +34,7 @@ describe('save 存档', () => {
       musicVolume: 0.55,
       screenShake: 1,
       showDamageNumbers: true,
+      reducedFlash: false,
     });
     expect(s.meta).toEqual(defaultMeta());
     expect(s.meta.unlocked).toEqual(['peregrine']);
@@ -44,7 +45,15 @@ describe('save 存档', () => {
       bestTime: 0,
       victories: 0,
       runs: 0,
+      totalCoresEarned: 0,
+      bestKills: 0,
+      bestLevel: 0,
+      totalPlaySeconds: 0,
+      endlessBestDepth: 0,
     });
+    expect(s.meta.achievements).toEqual({});
+    expect(s.meta.dailyBest).toEqual({ date: '', score: 0 });
+    expect(s.meta.charWins).toEqual({});
   });
 
   it('localStorage 为空时 loadSave 返回默认存档且不抛异常', () => {
@@ -110,6 +119,36 @@ describe('save 存档', () => {
   it('版本号不匹配时回落默认存档', () => {
     stubStorage(() => JSON.stringify({ version: 99, meta: { cores: 999 } }));
     expect(loadSave()).toEqual(defaultSave());
+  });
+
+  it('v1 旧档迁移：settings/meta 全部保留（v1.1 兼容）', () => {
+    const payload = {
+      version: 1,
+      settings: { lang: 'en', sfxVolume: 0.9, musicVolume: 0.4, screenShake: 0.8, showDamageNumbers: true },
+      meta: {
+        cores: 77,
+        upgrades: { vit: 3 },
+        unlocked: ['peregrine', 'bastion'],
+        bestiary: { mote: 4 },
+        lifetimeKills: 320,
+        bestTime: 411.5,
+        victories: 2,
+        runs: 9,
+      },
+    };
+    stubStorage(() => JSON.stringify(payload));
+    const s = loadSave();
+    expect(s.version).toBe(2);
+    expect(s.settings.lang).toBe('en');
+    expect(s.settings.reducedFlash).toBe(false);
+    expect(s.meta.cores).toBe(77);
+    expect(s.meta.upgrades).toEqual({ vit: 3 });
+    expect(s.meta.lifetimeKills).toBe(320);
+    // v1.1 新字段补默认值
+    expect(s.meta.achievements).toEqual({});
+    expect(s.meta.totalCoresEarned).toBe(0);
+    expect(s.meta.dailyBest).toEqual({ date: '', score: 0 });
+    expect(s.meta.charWins).toEqual({});
   });
 
   it('persistSave / wipeSave 在 stub 的 localStorage 下不抛异常', () => {

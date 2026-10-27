@@ -79,13 +79,18 @@ export function makeStats(): Stats {
 export type WeaponId =
   | 'pulse' | 'orbit' | 'nova' | 'arc'
   | 'lance' | 'drones' | 'frost' | 'shard'
+  // v1.1 新增
+  | 'scythe' | 'mines'
   // 进化形态
   | 'pulse_supernova' | 'orbit_corona' | 'nova_collapse' | 'arc_tempest'
-  | 'lance_singularity' | 'drones_hive' | 'frost_zero' | 'shard_mirror';
+  | 'lance_singularity' | 'drones_hive' | 'frost_zero' | 'shard_mirror'
+  | 'scythe_eclipse' | 'mines_bloom';
 
 export type PassiveId =
   | 'overdrive' | 'tempo' | 'aero' | 'vessel'
-  | 'magnet' | 'optics' | 'cortex' | 'plating';
+  | 'magnet' | 'optics' | 'cortex' | 'plating'
+  // v1.1 新增
+  | 'aegis' | 'greed';
 
 export interface WeaponInstance {
   id: WeaponId;
@@ -138,11 +143,15 @@ export type EnemyKindId =
   | 'mote' | 'dart' | 'shardling' | 'stinger' | 'warden'
   | 'splitter' | 'bulwark' | 'phase'
   | 'elite_haste' | 'elite_shield' | 'elite_mother'
+  // v1.1 新增
+  | 'elite_echo'
   | 'boss_devourer' | 'boss_eye';
 
 export type EnemyBehaviorId =
   | 'chaser' | 'weaver' | 'shooter'
-  | 'splitter' | 'tank' | 'phaser';
+  | 'splitter' | 'tank' | 'phaser'
+  // v1.1 新增
+  | 'dasher';
 
 export interface EnemyDef {
   id: EnemyKindId;
@@ -205,7 +214,9 @@ export interface Enemy {
 export type ProjectileKind =
   | 'pulse' | 'nova' | 'lance' | 'drone' | 'shard'
   | 'orbit' | 'pulse_supernova' | 'orbit_corona' | 'nova_collapse'
-  | 'arc_tempest' | 'lance_singularity' | 'drones_hive' | 'shard_mirror';
+  | 'arc_tempest' | 'lance_singularity' | 'drones_hive' | 'shard_mirror'
+  // v1.1 新增
+  | 'mine' | 'mine_bloom';
 
 export interface Projectile {
   id: number;
@@ -310,7 +321,9 @@ export interface DamageEvent {
 
 export type FxKind =
   | 'explosion' | 'beam' | 'chain' | 'ring' | 'telegraph'
-  | 'enemySpawn' | 'enemyDie' | 'levelUp' | 'core' | 'shieldHit' | 'freeze';
+  | 'enemySpawn' | 'enemyDie' | 'levelUp' | 'core' | 'shieldHit' | 'freeze'
+  // v1.1 新增：x,y=圆心 r=半径，points[0..1]=弧线起止角
+  | 'slash';
 
 export interface FxEvent {
   kind: FxKind;
@@ -389,11 +402,41 @@ export interface RunConfig {
   seed: number;
   characterId: CharacterId;
   meta: MetaSnapshot;
+  /** 运行模式（v1.1）：默认 standard */
+  mode?: RunMode;
+  /** 每日挑战：日期字符串 YYYY-MM-DD（mode='daily' 时必须） */
+  dailyDate?: string;
+}
+
+/** 运行模式（v1.1）。 */
+export type RunMode = 'standard' | 'endless' | 'daily';
+
+/** 每日挑战修正器（v1.1）。 */
+export interface DailyModifier {
+  id: string;
+  /** i18n key: daily.mod.<id> */
+  descKey: string;
+  apply: (state: RunState) => void;
 }
 
 export interface RunState {
   time: number;
   rng: import('@/core/rng').Rng;
+  /** 运行模式（v1.1） */
+  mode: RunMode;
+  /** 无尽：已完成的循环数（深度） */
+  loop: number;
+  /** 无尽：当前循环的起始时刻（导演时间轴基准） */
+  loopStart: number;
+  /** 本局完成的进化次数（成就/角色解锁用） */
+  evolutions: number;
+  /** 每日挑战：日期与命中修正器 id */
+  dailyDate: string | null;
+  dailyModifier: string | null;
+  /** 每日修正器入口：生成敌人时的乘数（默认 1） */
+  enemySpeedMul: number;
+  enemyHpMul: number;
+  bossHpMul: number;
   player: Player;
   stats: Stats;
   enemies: import('@/core/pool').Pool<Enemy>;
@@ -439,7 +482,7 @@ export interface RunState {
 
 // ---------------- 角色 ----------------
 
-export type CharacterId = 'peregrine' | 'bastion' | 'astraeus';
+export type CharacterId = 'peregrine' | 'bastion' | 'astraeus' | 'vesper';
 
 export interface CharacterDef {
   id: CharacterId;
@@ -468,6 +511,21 @@ export interface MetaSnapshot {
   bestTime: number;
   victories: number;
   runs: number;
+  // ---- v1.1 ----
+  /** 已解锁成就（id -> 1）。 */
+  achievements: Record<string, number>;
+  /** 生涯累计获得星核（含已花费）。 */
+  totalCoresEarned: number;
+  bestKills: number;
+  bestLevel: number;
+  /** 生涯总游玩秒数。 */
+  totalPlaySeconds: number;
+  /** 无尽模式最深循环数。 */
+  endlessBestDepth: number;
+  /** 每日挑战当日最佳。 */
+  dailyBest: { date: string; score: number };
+  /** 各角色胜利次数（解锁判定用）。 */
+  charWins: Record<string, number>;
 }
 
 export interface Settings {
@@ -476,6 +534,8 @@ export interface Settings {
   musicVolume: number;
   screenShake: number;
   showDamageNumbers: boolean;
+  /** v1.1：低闪模式（抑制全屏白闪/低血脉冲，光敏友好） */
+  reducedFlash: boolean;
 }
 
 export interface SaveData {

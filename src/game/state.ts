@@ -30,6 +30,15 @@ export function makeRunState(cfg: RunConfig): RunState {
   const state: RunState = {
     time: 0,
     rng: new Rng(cfg.seed),
+    mode: cfg.mode ?? 'standard',
+    loop: 0,
+    loopStart: 0,
+    evolutions: 0,
+    dailyDate: cfg.dailyDate ?? null,
+    dailyModifier: null,
+    enemySpeedMul: 1,
+    enemyHpMul: 1,
+    bossHpMul: 1,
     characterId: cfg.characterId,
     player: {
       x: 0, y: 0, vx: 0, vy: 0,

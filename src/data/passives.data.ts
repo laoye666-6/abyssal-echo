@@ -42,4 +42,15 @@ export const PASSIVE_DEFS: Record<PassiveId, PassiveDef> = {
     maxLevel: 5,
     apply: (s, lv) => { s.armor += 1.5 * lv; },
   },
+  // ---- v1.1 新增 ----
+  aegis: {
+    id: 'aegis',
+    maxLevel: 5,
+    apply: (s, lv) => { s.armor += 1.2 * lv; s.maxHp += 10 * lv; },
+  },
+  greed: {
+    id: 'greed',
+    maxLevel: 5,
+    apply: (s, lv) => { s.xpMul *= 1 + 0.15 * lv; s.luck += 0.6 * lv; },
+  },
 };

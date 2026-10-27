@@ -49,3 +49,51 @@ export function coresEarned(kills: number, elites: number, bosses: number, survi
 export function bossHpScale(t: number): number {
   return enemyHpScale(t) * 1.8;
 }
+
+// ---------------- v1.1：无尽模式 ----------------
+
+/** 无尽循环敌人 HP 乘数：每深一层 +12%（绝对时间成长之上再叠）。 */
+export function loopHpMul(loop: number): number {
+  return Math.pow(1.12, loop);
+}
+
+/** 无尽循环经验乘数：保证玩家成长能跟上压力。 */
+export function loopXpMul(loop: number): number {
+  return 1 + 0.15 * loop;
+}
+
+// ---------------- v1.1：每日挑战 ----------------
+
+/** FNV-1a 32 位哈希：把日期字符串折成稳定种子。 */
+export function fnv1a(str: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/** 每日种子：同一天恒定。 */
+export function dailySeed(dateStr: string): number {
+  return fnv1a(`abyssal-daily-${dateStr}`);
+}
+
+/** 当日轮换角色（含未解锁角色——每日即试用日）。 */
+export function dailyCharacter<T extends string>(dateStr: string, roster: T[]): T {
+  const idx = fnv1a(`abyssal-daily-char-${dateStr}`) % roster.length;
+  return roster[idx]!;
+}
+
+/** 每日得分：击杀 + 存活 + 等级 + 胜利奖励。 */
+export function dailyScore(kills: number, survivedSec: number, level: number, victory: boolean): number {
+  return kills + Math.floor(survivedSec) * 2 + level * 20 + (victory ? 500 : 0);
+}
+
+/** 今日日期字符串（本地时区）。 */
+export function todayStr(now = new Date()): string {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
