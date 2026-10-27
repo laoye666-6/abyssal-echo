@@ -143,7 +143,6 @@ describe('v1.1 运行模式', () => {
     const mod = DAILY_MODIFIERS.find((m) => m.id === 'glass_cannon')!;
     mod.apply(s);
     const crit0 = s.stats.critChance;
-    const hp0 = s.stats.maxHp;
     // 升级被动触发全量重建
     s.passives.push({ id: 'vessel', level: 1 });
     recomputeStats(s);

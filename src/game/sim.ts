@@ -129,6 +129,10 @@ export function stepSim(state: RunState, dt: number, ctrl: SimControl, grid: Ene
       return;
     }
 
+    // 星棘雷 / 伤害区：完全由 mines 武器的 update 驱动（感应起爆与周期跳伤），
+    // 不参与主循环碰撞——否则伤害区会被首个接触敌人一帧吃掉、布防期雷会被提前引爆
+    if (pr.kind === 'mine' || pr.kind === 'mine_bloom') return;
+
     // 碰撞
     let consumed = false;
     grid.query(pr.x, pr.y, pr.r + 40, (e) => {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { makeRunState, makeStatsForCharacter } from '@/game/state';
+import { stepSim } from '@/game/sim';
 import { defaultMeta } from '@/core/save';
 import { EnemyGrid, spawnEnemy } from '@/game/combat';
 import type { RunState, WeaponInstance } from '@/game/types';
@@ -157,5 +158,60 @@ describe('v1.1 新武器', () => {
     expect(s.cooldownMul).toBeCloseTo(0.92, 6);
     expect(s.maxHp).toBe(90);
     expect(s.moveSpeed).toBe(210);
+  });
+});
+
+describe('v1.1 地雷 × 主循环集成（stepSim 真实分发）', () => {
+  it('伤害区不被主循环碰撞一帧吃掉：持续 DoT 跳伤后自然消散', () => {
+    const s = makeState();
+    const grid = new EnemyGrid();
+    s.gridRef = grid;
+    // 只留一把冷却中的 mines_bloom（不再布雷），手动放置伤害区
+    s.weapons.push({ id: 'mines_bloom', level: 1, cd: 999, t: 0 });
+    const field = s.projectiles.spawn()!;
+    field.kind = 'mine_bloom';
+    field.data1 = 1;
+    field.data0 = 0;
+    field.rehit = 0;
+    field.r = 100;
+    field.dmg = 30;
+    field.life = 2.5;
+    field.x = s.player.x + 30;
+    field.y = s.player.y;
+    const target = place(s, 'mote', field.x, field.y)!;
+    grid.insert(target);
+    const hp0 = target.hp;
+    // 30 步（0.5s）：伤害区必须还活着（旧 bug：首帧被全额伤害吃掉）
+    for (let i = 0; i < 30; i++) stepSim(s, DT, { mx: 0, my: 0, dash: false }, grid);
+    expect(field.alive).toBe(true);
+    const tickDmg = hp0 - target.hp;
+    expect(tickDmg).toBeGreaterThan(0);
+    expect(tickDmg).toBeLessThan(field.dmg); // 跳伤 0.35×，不是全额
+    // 2.5s 后自然消散
+    for (let i = 0; i < 150; i++) stepSim(s, DT, { mx: 0, my: 0, dash: false }, grid);
+    expect(field.alive).toBe(false);
+  });
+
+  it('布防期地雷不被碰撞提前引爆', () => {
+    const s = makeState();
+    const grid = new EnemyGrid();
+    s.gridRef = grid;
+    s.weapons.push({ id: 'mines', level: 1, cd: 999, t: 0 });
+    const mine = s.projectiles.spawn()!;
+    mine.kind = 'mine';
+    mine.data1 = 0;
+    mine.data0 = 0.4; // 布防中
+    mine.rehit = 0;
+    mine.r = 7;
+    mine.dmg = 15;
+    mine.life = 6;
+    mine.x = s.player.x + 10;
+    mine.y = s.player.y;
+    const target = place(s, 'mote', mine.x, mine.y)!;
+    grid.insert(target);
+    const hp0 = target.hp;
+    for (let i = 0; i < 10; i++) stepSim(s, DT, { mx: 0, my: 0, dash: false }, grid);
+    expect(mine.alive).toBe(true); // 没有被碰撞引爆/吃掉
+    expect(target.hp).toBe(hp0);
   });
 });

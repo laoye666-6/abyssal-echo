@@ -186,11 +186,12 @@ export class GameApp {
 
   abandonRun(): void {
     if (!this.state) return;
-    this.finishRun(false);
+    this.finishRun(false, true);
   }
 
   restartRun(): void {
-    this.startRun();
+    // 保持当前模式（每日/无尽中重启不得掉回标准局）
+    this.startRun(this.state?.mode ?? 'standard');
   }
 
   // ---------------- 模拟 ----------------
@@ -249,7 +250,7 @@ export class GameApp {
     }
   }
 
-  private finishRun(victory: boolean): void {
+  private finishRun(victory: boolean, abandoned = false): void {
     const state = this.state;
     if (!state) return;
     const summary = collectRunSummary(state);
@@ -258,10 +259,10 @@ export class GameApp {
     // 深度语义：当前所处回廊 = loop + 1（与 HUD 显示一致）
     const depth = state.loop + 1;
 
-    // 每日得分
+    // 每日得分（主动放弃不计入当日最佳，也不算完成每日）
     let score = 0;
     let newDailyBest = false;
-    if (mode === 'daily') {
+    if (mode === 'daily' && !abandoned) {
       score = dailyScore(summary.kills, summary.time, summary.level, victory);
       const date = state.dailyDate ?? todayStr();
       const db = this.save.meta.dailyBest;
@@ -305,7 +306,11 @@ export class GameApp {
     if (summary.evolutions >= 1) tryUnlock('vesper');
     // 成就结算判定（state 仍在手上，live 判定可覆盖边界情况）
     this.unlockAchievements(evaluateLive(state, meta));
-    this.unlockAchievements(evaluateAfterRun(summary, meta), true);
+    if (!abandoned) {
+      this.unlockAchievements(evaluateAfterRun(summary, meta), true);
+    } else {
+      // 放弃局：跳过 afterRun 通道（避免"退出即完成每日"），仅保留 live 已解锁项
+    }
     persistSave(this.save);
 
     this.lastResult = {

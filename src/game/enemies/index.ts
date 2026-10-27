@@ -150,27 +150,28 @@ const behaviors: Record<string, EnemyUpdateFn> = {
     }
 
     e.phase -= dt;
-    if (e.phase <= 0 && e.phase > -(def.params?.telegraph ?? 0.8)) {
-      // 蓄力：急停 + telegraph 特效（此区间 phase 为负计数）
+    if (e.phase <= -(def.params?.telegraph ?? 0.8)) {
+      // 蓄力完毕：锁定玩家当前位置方向开始突进
+      const dx = state.player.x - e.x;
+      const dy = state.player.y - e.y;
+      e.tx = dx;
+      e.ty = dy;
+      e.t = def.params?.dashTime ?? 0.5;
+      e.phase = def.params?.dashCd ?? 3.2;
+      state.events.sfx.push({ name: 'warning', v: 0.5, p: 1.6 });
+      return;
+    }
+    if (e.phase <= 0) {
+      // 蓄力中：急停 + telegraph 特效（此区间 phase 为负计数，向 -telegraph 递减）
       e.vx *= Math.pow(0.0005, dt);
       e.vy *= Math.pow(0.0005, dt);
       if (state.rng.chance(dt * 8)) {
         state.events.fx.push({ kind: 'telegraph', x: e.x, y: e.y, r: e.r * 2.2, color: def.color });
       }
-      if (e.phase <= -(def.params?.telegraph ?? 0.8)) {
-        // 蓄力完毕：锁定玩家当前位置方向开始突进
-        const dx = state.player.x - e.x;
-        const dy = state.player.y - e.y;
-        e.tx = dx;
-        e.ty = dy;
-        e.t = def.params?.dashTime ?? 0.5;
-        e.phase = def.params?.dashCd ?? 3.2;
-        state.events.sfx.push({ name: 'warning', v: 0.5, p: 1.6 });
-      }
       return;
     }
 
-    // 常规接近
+    // 常规接近（phase > 0 冷却期）
     const p = state.player;
     const dx = p.x - e.x;
     const dy = p.y - e.y;

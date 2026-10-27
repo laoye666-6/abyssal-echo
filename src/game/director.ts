@@ -50,7 +50,8 @@ export function stepDirector(state: RunState, dt: number): void {
   // Boss 存活时压低常规生成，保持战斗可读
   const bossSuppress = d.bossAlive ? 0.35 : 1;
   d.spawnBudget += rate * bossSuppress * dt;
-  const cap = maxEnemiesAt(t);
+  // 密度上限随绝对时间成长（无尽循环重放时不得回落，否则每层开局压力倒挂）
+  const cap = maxEnemiesAt(state.time);
 
   while (d.spawnBudget >= 1 && state.enemies.live < cap) {
     // 按权重选敌人
